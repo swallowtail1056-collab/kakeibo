@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>きつね家計簿</title>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="きつね家計簿"/>
+<meta name="theme-color" content="#0F1117"/>
+<script>
+(function(){
+  var s='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="40" fill="#5C1A1A"/><polygon points="28,100 52,30 80,90" fill="#FF6600"/><polygon points="164,100 140,30 112,90" fill="#FF6600"/><polygon points="34,95 52,42 74,88" fill="#FFAA44"/><polygon points="158,95 140,42 118,88" fill="#FFAA44"/><ellipse cx="96" cy="118" rx="62" ry="56" fill="#FF8800"/><ellipse cx="96" cy="138" rx="34" ry="26" fill="#FFE0C0"/><ellipse cx="76" cy="110" rx="9" ry="10" fill="#1A0A00"/><ellipse cx="116" cy="110" rx="9" ry="10" fill="#1A0A00"/><circle cx="79" cy="107" r="3" fill="white"/><circle cx="119" cy="107" r="3" fill="white"/><ellipse cx="96" cy="130" rx="7" ry="5" fill="#CC4400"/><path d="M89,136 Q96,144 103,136" stroke="#CC4400" stroke-width="2.5" fill="none" stroke-linecap="round"/><ellipse cx="68" cy="124" rx="10" ry="7" fill="#FF6644" opacity="0.4"/><ellipse cx="124" cy="124" rx="10" ry="7" fill="#FF6644" opacity="0.4"/></svg>';
+  var b=btoa(unescape(encodeURIComponent(s)));
+  var u='data:image/svg+xml;base64,'+b;
+  ['apple-touch-icon','icon'].forEach(function(r){var l=document.createElement('link');l.rel=r;if(r==='icon')l.type='image/svg+xml';l.href=u;document.head.appendChild(l);});
+})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#0F1117;font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP','Yu Gothic',sans-serif;color:#E8EAF0}
+#root{height:100%}
+input,button,select,textarea{font-family:inherit;color:inherit}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+*{-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:#722F37;border-radius:99px}
+@keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes popIn{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes toast{0%{opacity:0;transform:translateX(-50%) translateY(-8px)}15%{opacity:1;transform:translateX(-50%) translateY(0)}80%{opacity:1}100%{opacity:0}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo, useEffect } = React;
+
+/* ══ SVGキツネアイコン ══ */
+const FoxIcon = ({ size=32, style={} }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width={size} height={size} style={{flexShrink:0,...style}}>
+    <rect width="192" height="192" rx="40" fill="#5C1A1A"/>
+    <polygon points="28,100 52,30 80,90" fill="#FF6600"/>
+    <polygon points="164,100 140,30 112,90" fill="#FF6600"/>
+    <polygon points="34,95 52,42 74,88" fill="#FFAA44"/>
+    <polygon points="158,95 140,42 118,88" fill="#FFAA44"/>
+    <ellipse cx="96" cy="118" rx="62" ry="56" fill="#FF8800"/>
+    <ellipse cx="96" cy="138" rx="34" ry="26" fill="#FFE0C0"/>
+    <ellipse cx="76" cy="110" rx="9" ry="10" fill="#1A0A00"/>
+    <ellipse cx="116" cy="110" rx="9" ry="10" fill="#1A0A00"/>
+    <circle cx="79" cy="107" r="3" fill="white"/>
+    <circle cx="119" cy="107" r="3" fill="white"/>
+    <ellipse cx="96" cy="130" rx="7" ry="5" fill="#CC4400"/>
+    <path d="M89,136 Q96,144 103,136" stroke="#CC4400" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+    <ellipse cx="68" cy="124" rx="10" ry="7" fill="#FF6644" opacity="0.4"/>
+    <ellipse cx="124" cy="124" rx="10" ry="7" fill="#FF6644" opacity="0.4"/>
+  </svg>
+);
+
+/* ══ テーマカラー ══ */
+const C = {
+  bg:"#0F1117",bg2:"#1A1D27",bg3:"#22253A",border:"#2A2D3A",
+  text:"#E8EAF0",text2:"#A0A8C0",text3:"#7B8099",
+  wine:"#722F37",wineL:"#8B3A44",wineD:"#4A1E22",
+  green:"#27AE60",greenL:"#2ECC71",
+  blue:"#5DBBFF",blueD:"#4A90D9",
+  income:"#2ECC71",expense:"#FF7070",
+};
+
+/* ══ カテゴリ ══ */
+const KCAT={
+  expense:[
+    {id:"food",label:"食費",icon:"🍜",color:"#A03030"},
+    {id:"transport",label:"交通費",icon:"🚃",color:"#1A5A99"},
+    {id:"shopping",label:"日用品",icon:"🛍️",color:"#996600"},
+    {id:"health",label:"医療・健康",icon:"💊",color:"#227722"},
+    {id:"leisure",label:"娯楽",icon:"🎮",color:"#6622AA"},
+    {id:"beauty",label:"美容",icon:"💄",color:"#AA1166"},
+    {id:"util",label:"光熱費",icon:"💡",color:"#AA4400"},
+    {id:"other_e",label:"その他",icon:"📦",color:"#445566"},
+  ],
+  income:[
+    {id:"salary",label:"給与",icon:"💴",color:"#227722"},
+    {id:"bonus",label:"賞与",icon:"🎁",color:"#115577"},
+    {id:"side",label:"副収入",icon:"💻",color:"#116677"},
+    {id:"other_i",label:"その他収入",icon:"🪙",color:"#446600"},
+  ],
+};
+const ATYPE=[
+  {id:"bank",label:"銀行口座",icon:"🏦",color:"#4A90D9"},
+  {id:"savings",label:"貯蓄・定期",icon:"💰",color:"#27AE60"},
+  {id:"investment",label:"投資・株式",icon:"📈",color:"#E67E22"},
+  {id:"cash",label:"現金",icon:"💴",color:"#8E44AD"},
+  {id:"credit",label:"クレジット（負債）",icon:"💳",color:"#E74C3C"},
+  {id:"other",label:"その他",icon:"📦",color:"#7F8C8D"},
+];
+const allKC=([...KCAT.expense,...KCAT.income]);
+const getKC=id=>allKC.find(c=>c.id===id)||{label:"不明",icon:"❓",color:"#555"};
+const getAT=id=>ATYPE.find(t=>t.id===id)||ATYPE[5];
+const yen=n=>"¥"+Number(n).toLocaleString("ja-JP");
+const yenF=n=>new Intl.NumberFormat("ja-JP",{style:"currency",currency:"JPY"}).format(n||0);
+const toISO=d=>d.toISOString().slice(0,10);
+const today=new Date();
+const mkD=d=>toISO(new Date(today.getFullYear(),today.getMonth(),d));
+const nxtId=a=>Math.max(0,...a.map(t=>t.id))+1;
+const DAY=["日","月","火","水","木","金","土"];
+const LS={
+  load:k=>{try{const r=localStorage.getItem(k);return r?JSON.parse(r):null;}catch{return null;}},
+  save:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}},
+};
+const SEED_TXS=[
+  {id:1,date:mkD(1),type:"income",catId:"salary",memo:"給与",amount:280000},
+  {id:2,date:mkD(3),type:"expense",catId:"food",memo:"スーパー",amount:4200},
+  {id:3,date:mkD(4),type:"expense",catId:"transport",memo:"定期券",amount:8600},
+  {id:4,date:mkD(5),type:"expense",catId:"food",memo:"ランチ",amount:850},
+  {id:5,date:mkD(6),type:"expense",catId:"leisure",memo:"映画",amount:1900},
+  {id:6,date:mkD(7),type:"expense",catId:"shopping",memo:"日用品",amount:2300},
+  {id:7,date:mkD(10),type:"expense",catId:"food",memo:"外食",amount:3200},
+  {id:8,date:mkD(12),type:"expense",catId:"util",memo:"電気代",amount:7800},
+  {id:9,date:mkD(14),type:"expense",catId:"health",memo:"薬局",amount:1200},
+  {id:10,date:mkD(15),type:"income",catId:"side",memo:"副収入",amount:45000},
+  {id:11,date:mkD(16),type:"expense",catId:"leisure",memo:"サブスク",amount:2970},
+  {id:12,date:mkD(17),type:"expense",catId:"food",memo:"スーパー",amount:5100},
+  {id:13,date:mkD(18),type:"expense",catId:"transport",memo:"タクシー",amount:1400},
+  {id:14,date:mkD(20),type:"expense",catId:"health",memo:"ジム月会費",amount:7000},
+  {id:15,date:mkD(22),type:"expense",catId:"util",memo:"水道代",amount:3200},
+];
+const SEED_ACC=[
+  {id:1,name:"メインバンク",type:"bank",balance:0},
+  {id:2,name:"給与口座",type:"bank",balance:0},
+  {id:3,name:"貯蓄口座",type:"savings",balance:0},
+];
+
+/* ══ 共通UI ══ */
+function Card({children,style={}}){return <div style={{background:C.bg2,borderRadius:16,border:`1px solid ${C.border}`,padding:16,marginBottom:12,...style}}>{children}</div>;}
+function Bar({pct,color}){return(<div style={{height:4,background:C.border,borderRadius:99,overflow:"hidden"}}><div style={{width:`${Math.min(100,pct)}%`,height:"100%",background:color,borderRadius:99,transition:"width .5s"}}/></div>);}
+function Sheet({onClose,children}){
+  return(
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.7)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn .2s"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:C.bg2,borderRadius:"22px 22px 0 0",width:"100%",maxWidth:520,padding:"20px 20px 44px",border:`1px solid ${C.border}`,borderBottom:"none",maxHeight:"90vh",overflowY:"auto",animation:"slideUp .25s ease"}}>
+        <div style={{width:36,height:4,background:C.border,borderRadius:99,margin:"0 auto 20px"}}/>
+        {children}
+      </div>
+    </div>
+  );
+}
+function Confirm({icon,title,sub,onCancel,onOk,okLabel="削除する"}){
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{background:C.bg2,borderRadius:20,padding:"28px 20px",width:"100%",maxWidth:340,textAlign:"center",border:`1px solid ${C.border}`,animation:"popIn .2s"}}>
+        <div style={{fontSize:44,marginBottom:14}}>{icon}</div>
+        <div style={{fontWeight:700,fontSize:16,color:C.text,marginBottom:8}}>{title}</div>
+        <div style={{fontSize:13,color:C.text3,marginBottom:24,whiteSpace:"pre-wrap"}}>{sub}</div>
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={onCancel} style={{flex:1,padding:"14px 0",borderRadius:12,border:"none",cursor:"pointer",fontWeight:700,background:C.bg3,color:C.text2,fontSize:14}}>キャンセル</button>
+          <button onClick={onOk} style={{flex:1,padding:"14px 0",borderRadius:12,border:"none",cursor:"pointer",fontWeight:700,background:"#8B0000",color:"#fff",fontSize:14}}>{okLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+function Donut({slices,size=150}){
+  const total=slices.reduce((s,x)=>s+x.value,0);
+  if(!total)return <div style={{width:size,height:size,borderRadius:"50%",background:C.bg3,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center",color:C.text3,fontSize:11}}>データなし</div>;
+  const R=42,cx=50,cy=50;
+  const xy=p=>{const a=p*2*Math.PI-Math.PI/2;return[cx+R*Math.cos(a),cy+R*Math.sin(a)];};
+  let c=0;
+  const paths=slices.map(s=>{const s0=c;c+=s.value/total;if(c-s0<.001)return null;const[x1,y1]=xy(s0),[x2,y2]=xy(c);return <path key={s.id} d={`M${cx},${cy} L${x1},${y1} A${R},${R} 0 ${c-s0>.5?1:0},1 ${x2},${y2} Z`} fill={s.color}/>;});
+  return(<svg viewBox="0 0 100 100" width={size} height={size} style={{display:"block",margin:"0 auto"}}>{paths}<circle cx={cx} cy={cy} r={27} fill={C.bg2}/><text x={cx} y={cy+4} textAnchor="middle" fontSize="8" fill={C.text3} fontWeight="bold">支出</text></svg>);
+}
+function AssetGraph({snaps,range}){
+  const data=useMemo(()=>{
+    if(!snaps.length)return[];
+    if(range==="all")return snaps;
+    const mo=range==="3m"?3:range==="6m"?6:12;
+    const cut=new Date();cut.setMonth(cut.getMonth()-mo);
+    const f=snaps.filter(s=>s.date>=toISO(cut));
+    return f.length>=2?f:snaps;
+  },[snaps,range]);
+  if(!data.length)return(<div style={{textAlign:"center",padding:"28px 0",color:C.text3,fontSize:12,lineHeight:2.2}}>📌「今日を記録」を押すと<br/>今日の純資産がグラフに追加されます<br/><span style={{fontSize:11}}>毎月1回記録すると推移が見えます</span></div>);
+  if(data.length===1)return(<div style={{textAlign:"center",padding:"20px 0",color:C.text3,fontSize:12,lineHeight:2}}>記録が1件あります（{data[0].date}）<br/><span style={{fontSize:22,fontWeight:700,color:C.blue}}>{yenF(data[0].net)}</span><br/><span style={{fontSize:11}}>もう1回記録するとグラフが表示されます</span></div>);
+  const W=560,H=140,PL=58,PT=12,PR=12,PB=30;
+  const vals=data.map(d=>d.net),minV=Math.min(...vals),maxV=Math.max(...vals);
+  const vR=maxV-minV||Math.abs(maxV)*.1||1;
+  const vMin=minV-vR*.05,vMax=maxV+vR*.1;
+  const toX=i=>PL+(i/(data.length-1))*(W-PL-PR);
+  const toY=v=>PT+(1-(v-vMin)/(vMax-vMin))*(H-PT-PB);
+  const pts=data.map((d,i)=>`${toX(i).toFixed(1)},${toY(d.net).toFixed(1)}`).join(" ");
+  const diff=data[data.length-1].net-data[0].net;
+  const dc=diff>=0?C.greenL:C.expense;
+  const yL=[0,1,2].map(i=>{const v=vMin+(vMax-vMin)*(i/2),y=toY(v).toFixed(1),abs=Math.abs(v),t=abs>=1e8?(v/1e8).toFixed(1)+"億":abs>=1e4?Math.round(v/1e4)+"万":Math.round(v).toLocaleString();return `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#2A2D3A" stroke-width="1"/><text x="${PL-6}" y="${(parseFloat(y)+3.5).toFixed(1)}" text-anchor="end" fill="#7B8099" font-size="10">${t}</text>`;});
+  const idxS=new Set([0,data.length-1]);const step=Math.floor((data.length-1)/4);if(step>0)for(let i=step;i<data.length-1;i+=step)idxS.add(i);
+  const xL=[...idxS].sort((a,b)=>a-b).map(i=>`<text x="${toX(i).toFixed(1)}" y="${(H-PB+16).toFixed(1)}" text-anchor="middle" fill="#7B8099" font-size="10">${data[i].date.slice(5).replace("-","/")}</text>`);
+  const dots=data.map((d,i)=>i===data.length-1?`<circle cx="${toX(i).toFixed(1)}" cy="${toY(d.net).toFixed(1)}" r="5" fill="#5DBBFF" stroke="#0F1117" stroke-width="2"/>`:`<circle cx="${toX(i).toFixed(1)}" cy="${toY(d.net).toFixed(1)}" r="3" fill="#5DBBFF" opacity="0.6"/>`).join('');
+  const bX0=toX(0).toFixed(1),bXN=toX(data.length-1).toFixed(1),bY=(H-PB).toFixed(1);
+  const svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;overflow:visible"><defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5DBBFF" stop-opacity="0.2"/><stop offset="100%" stop-color="#5DBBFF" stop-opacity="0.01"/></linearGradient></defs>${yL.join('')}<polygon points="${bX0},${bY} ${pts} ${bXN},${bY}" fill="url(#ag)"/><polyline points="${pts}" fill="none" stroke="#5DBBFF" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>${dots}${xL.join('')}</svg>`;
+  return(<div><div dangerouslySetInnerHTML={{__html:svg}}/><div style={{display:"flex",alignItems:"center",gap:8,marginTop:8,paddingTop:8,borderTop:`1px solid ${C.border}`,flexWrap:"wrap"}}><span style={{fontSize:11,color:C.text3}}>{data[0].date} 〜 {data[data.length-1].date}（{data.length}件）</span><span style={{fontSize:13,fontWeight:700,color:dc}}>{diff>=0?"+":""}{yenF(diff)}</span></div></div>);
+}
+
+/* ══ 家計簿フォーム（App外→フォーカスバグ解消）══ */
+function KakeiboForm({modal,form,setForm,setModal,setDel,onSave}){
+  const isEdit=modal!=="add";
+  const cats=KCAT[form.type]||[];
+  const inp={width:"100%",border:`1.5px solid ${C.border}`,borderRadius:10,padding:"10px 12px",fontSize:15,outline:"none",background:C.bg,color:C.text,marginBottom:14};
+  const lbl={fontSize:12,fontWeight:700,color:C.text2,marginBottom:5,display:"block"};
+  return(
+    <Sheet onClose={()=>setModal(null)}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+        <h2 style={{margin:0,fontSize:17,fontWeight:800,color:C.text,display:"flex",alignItems:"center",gap:8}}><FoxIcon size={24}/>{isEdit?"明細を編集":"明細を追加"}</h2>
+        {isEdit&&<button onClick={()=>setDel(modal.tx.id)} style={{background:C.wineD,border:"none",color:"#FFAAAA",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>削除</button>}
+      </div>
+      <div style={{display:"flex",background:C.bg3,borderRadius:12,padding:4,marginBottom:16}}>
+        {["expense","income"].map(t=>(
+          <button key={t} onClick={()=>setForm(f=>({...f,type:t,catId:KCAT[t][0].id}))} style={{flex:1,padding:"9px 0",borderRadius:9,border:"none",cursor:"pointer",fontWeight:800,fontSize:14,background:form.type===t?C.bg2:"transparent",color:form.type===t?(t==="income"?C.income:C.expense):C.text3,boxShadow:form.type===t?"0 1px 6px rgba(0,0,0,.4)":"none",transition:"all .2s"}}>
+            {t==="income"?"収入":"支出"}
+          </button>
+        ))}
+      </div>
+      <label style={lbl}>金額（円）</label>
+      <input type="number" inputMode="numeric" placeholder="0" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} style={{...inp,fontSize:28,fontWeight:800,textAlign:"right"}}/>
+      <label style={lbl}>カテゴリ</label>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:14}}>
+        {cats.map(c=>(
+          <button key={c.id} onClick={()=>setForm(f=>({...f,catId:c.id}))} style={{padding:"8px 4px",borderRadius:12,border:form.catId===c.id?`2px solid ${c.color}`:`1px solid ${C.border}`,background:form.catId===c.id?c.color+"25":C.bg,cursor:"pointer",textAlign:"center"}}>
+            <div style={{fontSize:20}}>{c.icon}</div>
+            <div style={{fontSize:10,color:form.catId===c.id?c.color:C.text3,marginTop:2,fontWeight:form.catId===c.id?800:400}}>{c.label}</div>
+          </button>
+        ))}
+      </div>
+      <label style={lbl}>日付</label>
+      <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={inp}/>
+      <label style={lbl}>メモ（任意）</label>
+      <input type="text" placeholder="例：スーパーで食料品" value={form.memo} onChange={e=>setForm(f=>({...f,memo:e.target.value}))} style={{...inp,marginBottom:20}}/>
+      <button onClick={onSave} style={{width:"100%",padding:"14px 0",borderRadius:12,border:"none",cursor:"pointer",fontWeight:800,fontSize:15,background:`linear-gradient(135deg,${C.wineD},${C.wine})`,color:"#fff"}}>{isEdit?"更新する":"追加する"}</button>
+    </Sheet>
+  );
+}
+
+/* ══ 資産フォーム（App外）══ */
+function AssetForm({mode,form,setForm,onSave,onClose,onDel}){
+  const isEdit=mode==="edit";
+  const inp={width:"100%",background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 14px",color:C.text,fontSize:15,outline:"none",marginBottom:16};
+  const lbl={fontSize:12,fontWeight:600,color:C.text2,display:"block",marginBottom:6};
+  return(
+    <Sheet onClose={onClose}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+        <h2 style={{margin:0,fontSize:17,fontWeight:800,color:C.text,display:"flex",alignItems:"center",gap:8}}><FoxIcon size={24}/>{isEdit?"口座を編集":"口座を追加"}</h2>
+        {isEdit&&<button onClick={onDel} style={{background:C.wineD,border:"none",color:"#FFAAAA",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>削除</button>}
+      </div>
+      <label style={lbl}>口座名</label>
+      <input type="text" placeholder="例：楽天銀行" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} style={inp}/>
+      <label style={lbl}>種類</label>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:16}}>
+        {ATYPE.map(t=>(
+          <button key={t.id} onClick={()=>setForm(f=>({...f,type:t.id}))} style={{padding:"10px 6px",borderRadius:10,border:form.type===t.id?`2px solid ${t.color}`:`1px solid ${C.border}`,background:form.type===t.id?t.color+"22":C.bg,cursor:"pointer",textAlign:"center"}}>
+            <div style={{fontSize:20,marginBottom:3}}>{t.icon}</div>
+            <div style={{fontSize:11,color:form.type===t.id?t.color:C.text3,fontWeight:form.type===t.id?700:400}}>{t.label}</div>
+          </button>
+        ))}
+      </div>
+      <label style={lbl}>残高（円）</label>
+      <input type="number" inputMode="numeric" placeholder="0" value={form.balance} onChange={e=>setForm(f=>({...f,balance:e.target.value}))} style={{...inp,fontSize:20,fontWeight:700,textAlign:"right"}}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:4}}>
+        <button onClick={onClose} style={{padding:"14px 0",borderRadius:12,border:"none",cursor:"pointer",fontWeight:700,background:C.bg3,color:C.text2}}>キャンセル</button>
+        <button onClick={onSave} style={{padding:"14px 0",borderRadius:12,border:"none",cursor:"pointer",fontWeight:800,background:`linear-gradient(135deg,${C.blueD},${C.blue})`,color:"#fff"}}>保存</button>
+      </div>
+    </Sheet>
+  );
+}
+
+/* ══ メインアプリ ══ */
+function App(){
+  const [txs,setTxs]=useState(()=>LS.load("kitsune_txs_v3")||SEED_TXS);
+  const [vm,setVM]=useState({y:today.getFullYear(),m:today.getMonth()});
+  const [kModal,setKModal]=useState(null);
+  const [kForm,setKForm]=useState({type:"expense",date:toISO(today),catId:"food",memo:"",amount:""});
+  const [kLF,setKLF]=useState("all");
+  const [kDel,setKDel]=useState(null);
+  const [accounts,setAccounts]=useState(()=>LS.load("kitsune_acc_v3")||SEED_ACC);
+  const [snaps,setSnaps]=useState(()=>LS.load("kitsune_snaps_v3")||[]);
+  const [aModal,setAModal]=useState(null);
+  const [aForm,setAForm]=useState({name:"",type:"bank",balance:""});
+  const [aEditId,setAEditId]=useState(null);
+  const [aDel,setADel]=useState(null);
+  const [aTab,setATab]=useState("all");
+  const [aRange,setARange]=useState("3m");
+  const [aEditBal,setAEditBal]=useState(null);
+  const [mainTab,setMainTab]=useState("home");
+  const [toast,setToast]=useState(false);
+
+  useEffect(()=>{LS.save("kitsune_txs_v3",txs);setToast(true);const t=setTimeout(()=>setToast(false),2000);return()=>clearTimeout(t);},[txs]);
+  useEffect(()=>{LS.save("kitsune_acc_v3",accounts);},[accounts]);
+  useEffect(()=>{LS.save("kitsune_snaps_v3",snaps);},[snaps]);
+
+  const shiftM=d=>setVM(p=>{let m=p.m+d,y=p.y;if(m>11){m=0;y++;}else if(m<0){m=11;y--;}return{y,m};});
+  const mlabel=`${vm.y}年${vm.m+1}月`;
+
+  const mTxs=useMemo(()=>txs.filter(t=>{const d=new Date(t.date);return d.getFullYear()===vm.y&&d.getMonth()===vm.m;}).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id),[txs,vm]);
+  const inc=mTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
+  const exp=mTxs.filter(t=>t.type==="expense").reduce((s,t)=>s+t.amount,0);
+  const bal=inc-exp;
+  const expByCat=useMemo(()=>{const map={};mTxs.filter(t=>t.type==="expense").forEach(t=>{map[t.catId]=(map[t.catId]||0)+t.amount;});return Object.entries(map).map(([id,v])=>({id,value:v,...getKC(id)})).sort((a,b)=>b.value-a.value);},[mTxs]);
+  const prevExp=useMemo(()=>{const pm=vm.m===0?11:vm.m-1,py=vm.m===0?vm.y-1:vm.y;return txs.filter(t=>{const d=new Date(t.date);return d.getFullYear()===py&&d.getMonth()===pm&&t.type==="expense";}).reduce((s,t)=>s+t.amount,0);},[txs,vm]);
+  const aTotals=useMemo(()=>{const assets=accounts.filter(a=>a.type!=="credit").reduce((s,a)=>s+(a.balance||0),0);const liab=accounts.filter(a=>a.type==="credit").reduce((s,a)=>s+(a.balance||0),0);return{assets,liab,net:assets-liab};},[accounts]);
+
+  const openKAdd=()=>{setKForm({type:"expense",date:toISO(today),catId:"food",memo:"",amount:""});setKModal("add");};
+  const openKEdit=tx=>{setKForm({...tx,amount:String(tx.amount)});setKModal({tx});};
+  const saveKForm=()=>{const a=parseInt(kForm.amount,10);if(!a||a<=0)return;if(kModal==="add")setTxs(p=>[{...kForm,amount:a,id:nxtId(p)},...p]);else setTxs(p=>p.map(t=>t.id===kModal.tx.id?{...kForm,amount:a,id:t.id}:t));setKModal(null);};
+  const execKDel=()=>{setTxs(p=>p.filter(t=>t.id!==kDel));setKDel(null);setKModal(null);};
+  const openAAdd=()=>{setAForm({name:"",type:"bank",balance:""});setAEditId(null);setAModal("add");};
+  const openAEdit=acc=>{setAForm({name:acc.name,type:acc.type,balance:String(acc.balance)});setAEditId(acc.id);setAModal("edit");};
+  const saveAForm=()=>{const name=aForm.name.trim();if(!name)return;const bal=parseInt(aForm.balance,10)||0;if(aModal==="add")setAccounts(p=>[...p,{id:nxtId(p),name,type:aForm.type,balance:bal}]);else setAccounts(p=>p.map(a=>a.id===aEditId?{...a,name,type:aForm.type,balance:bal}:a));setAModal(null);};
+  const execADel=()=>{setAccounts(p=>p.filter(a=>a.id!==aDel));setADel(null);setAModal(null);};
+  const takeSnap=()=>{const d=toISO(today);const snap={date:d,...aTotals};setSnaps(p=>{const idx=p.findIndex(s=>s.date===d);const n=[...p];if(idx>=0)n[idx]=snap;else n.push(snap);return n.sort((a,b)=>a.date.localeCompare(b.date));});};
+  const commitBal=(id,val)=>{const v=parseInt(val,10);if(isNaN(v))return;setAccounts(p=>p.map(a=>a.id===id?{...a,balance:v}:a));setAEditBal(null);};
+
+  const KHeader=({children})=>(
+    <div style={{background:"linear-gradient(160deg,#0A0C13 0%,#1A1D27 100%)",borderBottom:`1px solid ${C.border}`,padding:"env(safe-area-inset-top,0px) 16px 18px",position:"sticky",top:0,zIndex:10}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <button onClick={()=>shiftM(-1)} style={{background:C.bg3,border:"none",color:C.text,borderRadius:10,width:34,height:34,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
+        <div style={{display:"flex",alignItems:"center",gap:8}}><FoxIcon size={26}/><span style={{fontWeight:800,fontSize:17,color:C.text}}>{mlabel}</span></div>
+        <button onClick={()=>shiftM(1)} style={{background:C.bg3,border:"none",color:C.text,borderRadius:10,width:34,height:34,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+      </div>
+      {children}
+    </div>
+  );
+
+  /* ホーム */
+  const HomeTab=()=>(
+    <>
+      <KHeader>
+        <div style={{textAlign:"center",marginBottom:16}}>
+          <div style={{fontSize:11,color:C.text3,marginBottom:4}}>今月の残高</div>
+          <div style={{fontSize:40,fontWeight:900,letterSpacing:-1,color:bal>=0?C.wine:"#FF7070"}}>{yen(bal)}</div>
+          {prevExp>0&&<div style={{fontSize:11,color:C.text3,marginTop:4}}>先月比支出 {exp-prevExp>=0?"+":""}{yen(exp-prevExp)}</div>}
+        </div>
+        <div style={{display:"flex",gap:10}}>
+          {[["収入",inc,C.income],["支出",exp,C.expense]].map(([l,v,co])=>(
+            <div key={l} style={{flex:1,background:"rgba(255,255,255,.05)",borderRadius:12,padding:"10px 14px"}}>
+              <div style={{fontSize:11,color:C.text3,marginBottom:4}}>{l}</div>
+              <div style={{fontSize:20,fontWeight:800,color:co}}>{yen(v)}</div>
+            </div>
+          ))}
+        </div>
+      </KHeader>
+      <div style={{padding:"14px 14px 0"}}>
+        <Card>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <span style={{fontSize:12,fontWeight:800,color:C.text3,letterSpacing:.5}}>直近の明細</span>
+            <button onClick={()=>setMainTab("list")} style={{fontSize:12,color:C.wineL,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>すべて見る ›</button>
+          </div>
+          {mTxs.slice(0,5).map(t=>{const cat=getKC(t.catId);return(
+            <div key={t.id} onClick={()=>openKEdit(t)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:`1px solid ${C.border}`,cursor:"pointer"}}>
+              <div style={{width:36,height:36,borderRadius:10,background:cat.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{cat.icon}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:600,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t.memo||cat.label}</div>
+                <div style={{fontSize:11,color:C.text3,marginTop:1}}>{t.date} · {cat.label}</div>
+              </div>
+              <div style={{fontWeight:700,fontSize:15,color:t.type==="income"?C.income:C.expense,flexShrink:0}}>{t.type==="income"?"+":"-"}{yen(t.amount)}</div>
+            </div>
+          );})}
+          {mTxs.length===0&&<div style={{textAlign:"center",padding:"20px 0",color:C.text3,fontSize:13}}>🦊 まだ明細がありません</div>}
+        </Card>
+        <Card>
+          <div style={{fontSize:12,fontWeight:800,color:C.text3,letterSpacing:.5,marginBottom:10}}>支出カテゴリ内訳</div>
+          <div style={{display:"flex",gap:14,alignItems:"center"}}>
+            <Donut slices={expByCat.map(c=>({id:c.id,value:c.value,color:c.color}))} size={120}/>
+            <div style={{flex:1}}>
+              {expByCat.slice(0,5).map(c=>(
+                <div key={c.id} style={{marginBottom:8}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                    <span style={{fontSize:12,color:C.text2}}>{c.icon} {c.label}</span>
+                    <span style={{fontSize:12,fontWeight:700,color:C.text}}>{yen(c.value)}</span>
+                  </div>
+                  <Bar pct={exp>0?(c.value/exp)*100:0} color={c.color}/>
+                </div>
+              ))}
+              {expByCat.length===0&&<div style={{fontSize:12,color:C.text3}}>支出なし</div>}
+            </div>
+          </div>
+        </Card>
+        <Card>
+          <div style={{fontSize:12,fontWeight:800,color:C.text3,letterSpacing:.5,marginBottom:10}}>収支サマリー</div>
+          <div style={{display:"flex",gap:8,marginBottom:10}}>
+            {[["収入",inc,C.income],["支出",exp,C.expense],["残高",bal,bal>=0?C.wine:"#FF7070"]].map(([l,v,co])=>(
+              <div key={l} style={{flex:1,background:C.bg3,borderRadius:12,padding:"10px 6px",textAlign:"center"}}>
+                <div style={{fontSize:10,color:C.text3,marginBottom:4}}>{l}</div>
+                <div style={{fontSize:13,fontWeight:800,color:co}}>{yen(v)}</div>
+              </div>
+            ))}
+          </div>
+          {inc>0&&<><div style={{fontSize:11,color:C.text3,marginBottom:4}}>支出率 {Math.round((exp/inc)*100)}%</div><Bar pct={(exp/inc)*100} color={exp>inc?"#FF7070":C.wine}/></>}
+        </Card>
+      </div>
+    </>
+  );
+
+  /* 明細 */
+  const ListTab=()=>{
+    const filtered=mTxs.filter(t=>kLF==="all"||t.type===kLF);
+    const grouped=useMemo(()=>{const map={};filtered.forEach(t=>{if(!map[t.date])map[t.date]=[];map[t.date].push(t);});return Object.entries(map).sort((a,b)=>b[0].localeCompare(a[0]));},[filtered]);
+    return(
+      <>
+        <KHeader>
+          <div style={{display:"flex",gap:8}}>
+            {[["all","すべて"],["income","収入"],["expense","支出"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setKLF(v)} style={{padding:"5px 14px",borderRadius:99,fontSize:12,fontWeight:kLF===v?700:400,cursor:"pointer",border:"none",background:kLF===v?"#fff":C.bg3,color:kLF===v?C.wine:C.text3}}>{l}</button>
+            ))}
+          </div>
+        </KHeader>
+        <div style={{padding:"12px 14px"}}>
+          {grouped.length===0&&<div style={{textAlign:"center",padding:"48px 0",color:C.text3}}>🦊 明細がありません</div>}
+          {grouped.map(([date,items])=>(
+            <div key={date}>
+              <div style={{fontSize:12,fontWeight:700,color:C.text3,padding:"8px 4px 4px"}}>{date.replace(/-/g,"/")} ({DAY[new Date(date).getDay()]})</div>
+              <Card>
+                {items.map((t,i)=>{const cat=getKC(t.catId);return(
+                  <div key={t.id} onClick={()=>openKEdit(t)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:i<items.length-1?`1px solid ${C.border}`:"none",cursor:"pointer"}}>
+                    <div style={{width:36,height:36,borderRadius:10,background:cat.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{cat.icon}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:14,fontWeight:600,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t.memo||cat.label}</div>
+                      <div style={{fontSize:11,color:C.text3,marginTop:1}}>{cat.label}</div>
+                    </div>
+                    <div style={{fontWeight:700,fontSize:15,color:t.type==="income"?C.income:C.expense,flexShrink:0}}>{t.type==="income"?"+":"-"}{yen(t.amount)}</div>
+                  </div>
+                );})}
+              </Card>
+            </div>
+          ))}
+        </div>
+      </>
+    );
+  };
+
+  /* 分析 */
+  const AnalysisTab=()=>{
+    const monthly=useMemo(()=>{const r=[];for(let i=5;i>=0;i--){let m=vm.m-i,y=vm.y;if(m<0){m+=12;y--;}const e=txs.filter(t=>{const d=new Date(t.date);return d.getFullYear()===y&&d.getMonth()===m&&t.type==="expense";}).reduce((s,t)=>s+t.amount,0);r.push({label:`${m+1}月`,value:e});}return r;},[]);
+    const maxV=Math.max(...monthly.map(m=>m.value),1);
+    const days=new Date(vm.y,vm.m+1,0).getDate();
+    return(
+      <div style={{padding:"16px 14px"}}>
+        <div style={{fontSize:17,fontWeight:800,color:C.text,marginBottom:14,display:"flex",alignItems:"center",gap:8}}><FoxIcon size={22}/> 支出分析</div>
+        <Card>
+          <div style={{fontSize:12,fontWeight:800,color:C.text3,letterSpacing:.5,marginBottom:10}}>月別支出推移（直近6ヶ月）</div>
+          <div style={{display:"flex",alignItems:"flex-end",gap:6,height:110,marginBottom:8}}>
+            {monthly.map((m,i)=>(
+              <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",height:"100%"}}>
+                <div style={{fontSize:9,color:C.text3,marginBottom:2}}>{m.value>0?`${Math.round(m.value/1000)}k`:""}</div>
+                <div style={{width:"100%",borderRadius:"6px 6px 0 0",height:`${(m.value/maxV)*100}%`,background:i===5?`linear-gradient(180deg,${C.wineL},${C.wineD})`:C.bg3,minHeight:m.value>0?4:0,transition:"height .6s"}}/>
+                <div style={{fontSize:10,color:C.text3,marginTop:4}}>{m.label}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card>
+          <div style={{fontSize:12,fontWeight:800,color:C.text3,letterSpacing:.5,marginBottom:10}}>{mlabel}のカテゴリ別</div>
+          <Donut slices={expByCat.map(c=>({id:c.id,value:c.value,color:c.color}))} size={150}/>
+          <div style={{marginTop:14}}>
+            {expByCat.map(c=>(
+              <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                <div style={{width:10,height:10,borderRadius:3,background:c.color,flexShrink:0}}/>
+                <span style={{fontSize:13,color:C.text2,flex:1}}>{c.icon} {c.label}</span>
+                <span style={{fontSize:13,fontWeight:700,color:C.text}}>{yen(c.value)}</span>
+                <span style={{fontSize:11,color:C.text3,width:34,textAlign:"right"}}>{exp>0?`${Math.round((c.value/exp)*100)}%`:""}</span>
+              </div>
+            ))}
+            {expByCat.length===0&&<div style={{textAlign:"center",color:C.text3,fontSize:13,padding:"14px 0"}}>支出データなし</div>}
+          </div>
+        </Card>
+        <Card>
+          <div style={{fontSize:12,fontWeight:800,color:C.text3,letterSpacing:.5,marginBottom:10}}>今月のサマリー</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            {[["件数",`${mTxs.filter(t=>t.type==="expense").length}件`,C.expense],["平均/日",exp>0?yen(Math.round(exp/days)):"¥0",C.expense],["最大支出",expByCat.length>0?getKC(expByCat[0].id).label:"—","#AA66FF"],["貯蓄率",inc>0?`${Math.max(0,Math.round(((inc-exp)/inc)*100))}%`:"—",C.income]].map(([l,v,co])=>(
+              <div key={l} style={{background:C.bg3,borderRadius:12,padding:"12px 14px"}}>
+                <div style={{fontSize:11,color:C.text3,marginBottom:4}}>{l}</div>
+                <div style={{fontSize:18,fontWeight:800,color:co}}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    );
+  };
+
+  /* 資産 */
+  const AssetTab=()=>{
+    const {assets,liab,net}=aTotals;
+    const filtered=aTab==="all"?accounts:accounts.filter(a=>a.type===aTab);
+    const byType=ATYPE.map(t=>({...t,total:accounts.filter(a=>a.type===t.id).reduce((s,a)=>s+(a.balance||0),0),count:accounts.filter(a=>a.type===t.id).length})).filter(t=>t.count>0);
+    return(
+      <div>
+        <div style={{background:"linear-gradient(160deg,#0A0C13 0%,#1A1D27 100%)",borderBottom:`1px solid ${C.border}`,padding:"env(safe-area-inset-top,0px) 16px 18px",position:"sticky",top:0,zIndex:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+            <div>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}><FoxIcon size={22}/><span style={{fontSize:14,fontWeight:700,color:C.text}}>マイ資産</span></div>
+              <div style={{fontSize:10,color:C.text3,marginBottom:8}}>口座自動連携なし・データはこの端末のみ</div>
+              <div style={{fontSize:11,color:C.text3,marginBottom:2}}>純資産</div>
+              <div style={{fontSize:32,fontWeight:700,letterSpacing:-1,color:net>=0?C.blue:C.expense}}>{yenF(net)}</div>
+            </div>
+            <button onClick={openAAdd} style={{background:`linear-gradient(135deg,${C.blueD},${C.blue})`,border:"none",borderRadius:12,padding:"10px 14px",color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>＋ 口座追加</button>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div style={{background:"rgba(39,174,96,.1)",borderRadius:12,padding:"12px 14px",border:"1px solid rgba(39,174,96,.2)"}}>
+              <div style={{fontSize:11,color:C.green,marginBottom:4}}>総資産</div>
+              <div style={{fontSize:18,fontWeight:700,color:C.greenL}}>{yenF(assets)}</div>
+            </div>
+            <div style={{background:"rgba(231,76,60,.1)",borderRadius:12,padding:"12px 14px",border:"1px solid rgba(231,76,60,.2)"}}>
+              <div style={{fontSize:11,color:"#E74C3C",marginBottom:4}}>総負債</div>
+              <div style={{fontSize:18,fontWeight:700,color:C.expense}}>{yenF(liab)}</div>
+            </div>
+          </div>
+        </div>
+        <div style={{padding:"0 14px"}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.text3,letterSpacing:2,marginBottom:10,marginTop:20}}>📊 資産推移グラフ</div>
+          <Card>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
+              <span style={{fontSize:13,fontWeight:700,color:C.text}}>純資産の推移</span>
+              <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                {["3m","6m","1y","all"].map(r=>(
+                  <button key={r} onClick={()=>setARange(r)} style={{background:aRange===r?C.blue:C.bg3,border:"none",borderRadius:6,padding:"4px 9px",color:aRange===r?C.bg:C.text3,fontSize:11,cursor:"pointer",fontWeight:aRange===r?700:400}}>
+                    {r==="3m"?"3ヶ月":r==="6m"?"6ヶ月":r==="1y"?"1年":"全期間"}
+                  </button>
+                ))}
+                <button onClick={takeSnap} style={{background:C.green,border:"none",borderRadius:6,padding:"4px 10px",color:"#fff",fontSize:11,cursor:"pointer",fontWeight:600}}>📌 今日を記録</button>
+              </div>
+            </div>
+            <AssetGraph snaps={snaps} range={aRange}/>
+          </Card>
+          {byType.length>0&&(
+            <>
+              <div style={{fontSize:11,fontWeight:700,color:C.text3,letterSpacing:2,marginBottom:10,marginTop:20}}>カテゴリー別</div>
+              {byType.map(t=>{const pct=assets>0&&t.id!=="credit"?(t.total/assets*100).toFixed(1):null;return(
+                <div key={t.id} style={{display:"flex",alignItems:"center",gap:12,background:C.bg2,borderRadius:10,padding:"10px 14px",border:`1px solid ${C.border}`,marginBottom:6}}>
+                  <span style={{fontSize:18}}>{t.icon}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                      <span style={{fontSize:12,color:C.text2}}>{t.label}</span>
+                      <span style={{fontSize:13,fontWeight:700,color:t.id==="credit"?C.expense:C.text}}>{t.id==="credit"?"−":""}{yenF(t.total)}</span>
+                    </div>
+                    {pct&&<Bar pct={parseFloat(pct)} color={t.color}/>}
+                  </div>
+                  {pct&&<span style={{fontSize:11,color:C.text3,minWidth:36,textAlign:"right"}}>{pct}%</span>}
+                </div>
+              );})}
+            </>
+          )}
+          <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,marginTop:16,marginBottom:8}}>
+            {[{id:"all",label:"すべて",icon:"📋"},...ATYPE].map(t=>(
+              <button key={t.id} onClick={()=>setATab(t.id)} style={{background:aTab===t.id?C.blue:C.bg2,border:aTab===t.id?"none":`1px solid ${C.border}`,borderRadius:20,padding:"6px 14px",color:aTab===t.id?C.bg:C.text3,fontSize:12,cursor:"pointer",whiteSpace:"nowrap",fontWeight:aTab===t.id?700:400}}>
+                {t.icon} {t.label}
+              </button>
+            ))}
+          </div>
+          {filtered.length===0?(<div style={{textAlign:"center",padding:"40px 0",color:C.text3}}>口座がありません。「＋ 口座追加」から追加してください。</div>):
+          filtered.map(acc=>{const t=getAT(acc.type);const isEd=aEditBal===acc.id;return(
+            <div key={acc.id} style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:14,padding:14,display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
+              <div style={{width:40,height:40,borderRadius:10,background:t.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{t.icon}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:600,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{acc.name}</div>
+                <div style={{fontSize:11,color:C.text3,marginTop:2}}>{t.label}</div>
+              </div>
+              {isEd?(
+                <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                  <input autoFocus type="number" defaultValue={acc.balance} onBlur={e=>commitBal(acc.id,e.target.value)} onKeyDown={e=>{if(e.key==="Enter")commitBal(acc.id,e.target.value);if(e.key==="Escape")setAEditBal(null);}} style={{background:C.bg,border:`1px solid ${C.blue}`,borderRadius:6,color:C.blue,fontSize:16,fontWeight:700,padding:"4px 8px",width:130,textAlign:"right",outline:"none"}}/>
+                  <span style={{fontSize:10,color:C.text3}}>Enterで確定</span>
+                </div>
+              ):(
+                <div style={{textAlign:"right",cursor:"pointer",flexShrink:0}} onClick={()=>setAEditBal(acc.id)}>
+                  <div style={{fontSize:18,fontWeight:700,color:acc.type==="credit"?C.expense:C.text}}>{acc.type==="credit"?"−":""}{yenF(acc.balance)}</div>
+                  <div style={{fontSize:10,color:C.blue,marginTop:2}}>タップして編集</div>
+                </div>
+              )}
+              <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
+                <button onClick={()=>openAEdit(acc)} style={{background:C.bg3,border:"none",borderRadius:6,width:28,height:28,cursor:"pointer",fontSize:12}}>✏️</button>
+                <button onClick={()=>{setADel(acc.id);setAModal("delConfirm");}} style={{background:C.bg3,border:"none",borderRadius:6,width:28,height:28,cursor:"pointer",fontSize:12}}>🗑️</button>
+              </div>
+            </div>
+          );})}
+          <div style={{height:20}}/>
+        </div>
+      </div>
+    );
+  };
+
+  /* 設定 */
+  const SettingsTab=()=>{
+    const [showReset,setShowReset]=useState(false);
+    const exportData=()=>{const data=JSON.stringify({version:3,txs,accounts,snaps,exportedAt:new Date().toISOString()},null,2);const blob=new Blob([data],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`きつね家計簿_${toISO(today)}.json`;a.click();URL.revokeObjectURL(url);};
+    return(
+      <div style={{padding:"16px 14px"}}>
+        <div style={{fontSize:17,fontWeight:800,color:C.text,marginBottom:16,display:"flex",alignItems:"center",gap:8}}><FoxIcon size={22}/> 設定</div>
+        <Card style={{background:"rgba(39,174,96,.08)",border:"1px solid rgba(39,174,96,.2)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:22}}>💾</span>
+            <div><div style={{fontWeight:700,fontSize:14,color:C.greenL}}>自動保存が有効です</div><div style={{fontSize:12,color:C.green,marginTop:1}}>データはこのブラウザに保存されています</div></div>
+          </div>
+        </Card>
+        {[{icon:"📤",label:"データをエクスポート",desc:"JSONファイルで保存・共有",action:exportData},{icon:"🎯",label:"予算を設定する",desc:"カテゴリごとに月予算を管理",action:null},{icon:"🔔",label:"通知設定",desc:"支出アラートを受け取る",action:null},{icon:"🌙",label:"ダークモード",desc:"現在: ダーク（固定）",action:null},{icon:"🔒",label:"セキュリティ",desc:"パスコード設定",action:null}].map(({icon,label,desc,action})=>(
+          <Card key={label} style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer"}} onClick={action||undefined}>
+            <div style={{width:42,height:42,borderRadius:12,background:C.bg3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{icon}</div>
+            <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14,color:C.text}}>{label}</div><div style={{fontSize:12,color:C.text3,marginTop:1}}>{desc}</div></div>
+            <div style={{color:C.border,fontSize:18}}>›</div>
+          </Card>
+        ))}
+        <Card style={{border:`1px solid ${C.wineD}`,cursor:"pointer"}} onClick={()=>setShowReset(true)}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{width:42,height:42,borderRadius:12,background:C.wineD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🗑️</div>
+            <div><div style={{fontWeight:600,fontSize:14,color:C.wineL}}>データをリセット</div><div style={{fontSize:12,color:C.text3,marginTop:1}}>保存されたすべてのデータを削除</div></div>
+          </div>
+        </Card>
+        <div style={{textAlign:"center",marginTop:20,color:C.text3,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><FoxIcon size={16}/> きつね家計簿 v2.0.0</div>
+        {showReset&&<Confirm icon="⚠️" title="データをリセットしますか？" sub={"家計簿・資産すべてのデータが\n削除されます。元に戻せません。"} onCancel={()=>setShowReset(false)} onOk={()=>{setTxs(SEED_TXS);setAccounts(SEED_ACC);setSnaps([]);setShowReset(false);}} okLabel="リセット"/>}
+      </div>
+    );
+  };
+
+  const NAV=[{id:"home",icon:"🏠",label:"ホーム"},{id:"list",icon:"📋",label:"明細"},{id:"analysis",icon:"📊",label:"分析"},{id:"asset",icon:"💰",label:"資産"},{id:"settings",icon:"⚙️",label:"設定"}];
+
+  return(
+    <div style={{background:C.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:76,position:"relative"}}>
+      {mainTab==="home"&&<HomeTab/>}
+      {mainTab==="list"&&<ListTab/>}
+      {mainTab==="analysis"&&<AnalysisTab/>}
+      {mainTab==="asset"&&<AssetTab/>}
+      {mainTab==="settings"&&<SettingsTab/>}
+
+      {(mainTab==="home"||mainTab==="list"||mainTab==="analysis")&&(
+        <button onClick={openKAdd} style={{position:"fixed",bottom:82,right:"max(16px,calc(50% - 240px + 16px))",width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${C.wineD},${C.wineL})`,color:"#fff",fontSize:28,border:"none",cursor:"pointer",boxShadow:"0 4px 20px rgba(114,47,55,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:60}}>＋</button>
+      )}
+
+      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:C.bg2,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:50,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
+        {NAV.map(({id,icon,label})=>(
+          <button key={id} onClick={()=>setMainTab(id)} style={{flex:1,padding:"10px 0 8px",border:"none",background:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,color:mainTab===id?C.wine:C.text3}}>
+            <span style={{fontSize:20}}>{icon}</span>
+            <span style={{fontSize:10,fontWeight:mainTab===id?700:400}}>{label}</span>
+          </button>
+        ))}
+      </div>
+
+      {toast&&(
+        <div style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",background:C.bg2,border:`1px solid ${C.border}`,color:C.text,borderRadius:99,padding:"8px 18px",fontSize:12,fontWeight:600,zIndex:400,display:"flex",alignItems:"center",gap:6,boxShadow:"0 4px 16px rgba(0,0,0,.5)",whiteSpace:"nowrap",animation:"toast 2s ease forwards"}}>
+          🦊 保存しました
+        </div>
+      )}
+
+      {kModal&&<KakeiboForm modal={kModal} form={kForm} setForm={setKForm} setModal={setKModal} setDel={setKDel} onSave={saveKForm}/>}
+      {(aModal==="add"||aModal==="edit")&&<AssetForm mode={aModal} form={aForm} setForm={setAForm} onSave={saveAForm} onClose={()=>setAModal(null)} onDel={()=>{setADel(aEditId);setAModal("delConfirm");}}/>}
+      {kDel&&<Confirm icon="🗑️" title="この明細を削除しますか？" sub="この操作は元に戻せません。" onCancel={()=>setKDel(null)} onOk={execKDel}/>}
+      {aModal==="delConfirm"&&<Confirm icon="🗑️" title="口座を削除しますか？" sub="この操作は元に戻せません。" onCancel={()=>setAModal(null)} onOk={execADel}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
