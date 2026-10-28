@@ -60,7 +60,7 @@ const FoxIcon = ({ size=32, style={} }) => (
 const THEMES={
   dark:{
     bg:"#0F1117",bg2:"#1A1D27",bg3:"#22253A",border:"#2A2D3A",
-    text:"#E8EAF0",text2:"#A0A8C0",text3:"#7B8099",
+    text:"#E8EAF0",text2:"#B4BBD2",text3:"#8F96B0",green:"#27AE60",greenL:"#2ECC71",
     wine:"#722F37",wineL:"#8B3A44",wineD:"#4A1E22",
     blue:"#5DBBFF",blueD:"#4A90D9",income:"#2ECC71",expense:"#FF7070",
     btn1:"#4A1E22",btn2:"#722F37",btn3:"#8B3A44",
@@ -69,20 +69,20 @@ const THEMES={
   },
   sky:{
     bg:"#E6F2FB",bg2:"#FFFFFF",bg3:"#D7E9F8",border:"#C3DBEE",
-    text:"#1B2A3B",text2:"#47617D",text3:"#6A839C",
+    text:"#1F2933",text2:"#33414E",text3:"#4A5866",green:"#177A42",greenL:"#136B39",
     wine:"#3B8BD0",wineL:"#2F7FC1",wineD:"#CFE6F8",
-    blue:"#2F7FC1",blueD:"#2A6FB0",income:"#1E9E5A",expense:"#E04A4A",
+    blue:"#1F63A6",blueD:"#1A5590",income:"#17803F",expense:"#D03A3A",
     btn1:"#2A6FB0",btn2:"#3B8BD0",btn3:"#5BA3DE",
-    hd1:"#CFE6F8",hd2:"#EAF5FD",glass:"rgba(255,255,255,.75)",big:"#2A6FB0",danger:"#C0392B",
+    hd1:"#CFE6F8",hd2:"#EAF5FD",glass:"rgba(255,255,255,.75)",big:"#1B5A9A",danger:"#B02A1E",
     tint:"rgba(59,139,208,.12)",glow:"rgba(59,139,208,.45)",meta:"#E6F2FB",scheme:"light"
   },
   pink:{
     bg:"#FDEFF3",bg2:"#FFFFFF",bg3:"#FADCE5",border:"#F2C6D3",
-    text:"#3A2530",text2:"#7A5565",text3:"#9C7A89",
+    text:"#2A1F25",text2:"#4A3A43",text3:"#5F4D57",green:"#177A42",greenL:"#136B39",
     wine:"#E0678A",wineL:"#D4527A",wineD:"#FBD9E4",
-    blue:"#D4527A",blueD:"#B8416A",income:"#1E9E5A",expense:"#D6405A",
+    blue:"#B93E68",blueD:"#A03358",income:"#17803F",expense:"#C8344F",
     btn1:"#C94A74",btn2:"#E0678A",btn3:"#EE86A5",
-    hd1:"#FBD9E4",hd2:"#FEF1F5",glass:"rgba(255,255,255,.75)",big:"#C94A74",danger:"#C0392B",
+    hd1:"#FBD9E4",hd2:"#FEF1F5",glass:"rgba(255,255,255,.75)",big:"#B93E68",danger:"#B02A1E",
     tint:"rgba(224,103,138,.12)",glow:"rgba(224,103,138,.45)",meta:"#FDEFF3",scheme:"light"
   },
 };
@@ -1685,7 +1685,7 @@ function App(){
             <div><div style={{fontWeight:600,fontSize:14,color:C.wineL}}>データをリセット</div><div style={{fontSize:12,color:C.text3,marginTop:1}}>すべてのデータを削除して空の状態に戻す</div></div>
           </div>
         </Card>
-        <div style={{textAlign:"center",marginTop:20,color:C.text3,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><FoxIcon size={16}/> キツネ家計簿 v2.17.0</div>
+        <div style={{textAlign:"center",marginTop:20,color:C.text3,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><FoxIcon size={16}/> キツネ家計簿 v2.17.1</div>
         {showReset&&<Confirm icon="⚠️" title="データをリセットしますか？" sub={"家計簿・資産すべてのデータが\n削除されます。元に戻せません。"} onCancel={()=>setShowReset(false)} onOk={()=>{setTxs(SEED_TXS);setAccounts(SEED_ACC);setSnaps([]);setFixed([]);setBudgets({});setHidden(DEFAULT_HIDDEN);setCustomCats([]);setCarry(defaultCarry([]));setGoals([]);setKid(false);setKidPin("");setMs({d:1,name:"start"});setWho(false);setNeedSetup(true);setShowReset(false);}} okLabel="リセット"/>}
       </div>
     );
