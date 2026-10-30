@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>キツネ家計簿</title>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -17,7 +17,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:#0F1117;font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP','Yu Gothic',sans-serif;color:#E8EAF0}
+html{overflow-x:hidden}
+html,body{max-width:100%;height:100%;background:#0F1117;font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP','Yu Gothic',sans-serif;color:#E8EAF0}
 #root{height:100%}
 input,button,select,textarea{font-family:inherit;color:inherit}
 input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
@@ -115,6 +116,7 @@ const KCAT={
     {id:"nisa",label:"NISA",icon:"📈",color:"#2E9E6B"},
     {id:"ideco",label:"iDeCo",icon:"🏦",color:"#3C8DBC"},
     {id:"stock",label:"株式投資",icon:"💹",color:"#7B9E2E"},
+    {id:"special",label:"特別費",icon:"🛠️",color:"#C28E0E"},
     {id:"other_e",label:"その他",icon:"📦",color:"#445566"},
   ],
   income:[
@@ -146,6 +148,9 @@ const applyCustom=(list)=>{
   allKC.splice(0,allKC.length,...KCAT.expense,...KCAT.income,...KID_OUT,...KID_IN);
 };
 const SAVING_IDS=["saving","nisa","ideco","stock"];
+/* 特別費（リフォームなど）: 月の収支・予算・繰越には入れず、別に見せる */
+const SPECIAL_IDS=["special"];
+const isSp=t=>t.type==="expense"&&SPECIAL_IDS.includes(t.catId);
 const DEFAULT_HIDDEN=["grandchild","pet","care","nisa","ideco","stock"];
 const hiddenFor=(txs)=>{const used=new Set((txs||[]).map(t=>t.catId));return DEFAULT_HIDDEN.filter(id=>!used.has(id));};
 const visCats=(type,hidden,keepId)=>(KCAT[type]||[]).filter(c=>!hidden.includes(c.id)||c.id===keepId);
@@ -237,7 +242,7 @@ function AssetGraph({snaps,range}){
 function KakeiboForm({modal,form,setForm,setModal,setDel,onSave,hidden}){
   const isEdit=modal!=="add";
   const cats=visCats(form.type,hidden,form.catId);
-  const inp={width:"100%",border:`1.5px solid ${C.border}`,borderRadius:10,padding:"10px 12px",fontSize:15,outline:"none",background:C.bg,color:C.text,marginBottom:14};
+  const inp={width:"100%",border:`1.5px solid ${C.border}`,borderRadius:10,padding:"10px 12px",fontSize:16,outline:"none",background:C.bg,color:C.text,marginBottom:14};
   const lbl={fontSize:12,fontWeight:700,color:C.text2,marginBottom:5,display:"block"};
   return(
     <Sheet onClose={()=>setModal(null)}>
@@ -263,6 +268,7 @@ function KakeiboForm({modal,form,setForm,setModal,setDel,onSave,hidden}){
           </button>
         ))}
       </div>
+      {SPECIAL_IDS.includes(form.catId)&&form.type==="expense"&&<div style={{fontSize:12,color:C.text2,background:C.tint,borderRadius:10,padding:"8px 12px",marginTop:-6,marginBottom:14,lineHeight:1.6}}>🛠️ 特別費は、月の収支・予算・繰り越しには入りません。貯金など別のお金から払った大きな出費に使います。</div>}
       <label style={lbl}>日付</label>
       <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={inp}/>
       <label style={lbl}>メモ（任意）</label>
@@ -275,7 +281,7 @@ function KakeiboForm({modal,form,setForm,setModal,setDel,onSave,hidden}){
 /* ══ 資産フォーム（App外）══ */
 function AssetForm({mode,form,setForm,onSave,onClose,onDel}){
   const isEdit=mode==="edit";
-  const inp={width:"100%",background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 14px",color:C.text,fontSize:15,outline:"none",marginBottom:16};
+  const inp={width:"100%",background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 14px",color:C.text,fontSize:16,outline:"none",marginBottom:16};
   const lbl={fontSize:12,fontWeight:600,color:C.text2,display:"block",marginBottom:6};
   return(
     <Sheet onClose={onClose}>
@@ -296,7 +302,7 @@ function AssetForm({mode,form,setForm,onSave,onClose,onDel}){
       </div>
       <label style={lbl}>残高（円）</label>
       <input type="number" inputMode="numeric" placeholder="0" value={form.balance} onChange={e=>setForm(f=>({...f,balance:e.target.value}))} style={{...inp,fontSize:20,fontWeight:700,textAlign:"right"}}/>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:4}}>
+      <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:10,marginTop:4}}>
         <button onClick={onClose} style={{padding:"14px 0",borderRadius:12,border:"none",cursor:"pointer",fontWeight:700,background:C.bg3,color:C.text2}}>キャンセル</button>
         <button onClick={onSave} style={{padding:"14px 0",borderRadius:12,border:"none",cursor:"pointer",fontWeight:800,background:`linear-gradient(135deg,${C.blueD},${C.blue})`,color:"#fff"}}>保存</button>
       </div>
@@ -310,7 +316,14 @@ const fEvery=f=>f.every||1;
 const fSpread=f=>fEvery(f)>1&&f.spread!==false&&!f.payday;
 const fixedAmt=f=>fSpread(f)?Math.round(f.amount/fEvery(f)):f.amount;
 const isPayMonth=(f,m)=>{const e=fEvery(f);if(e===1)return true;const a=f.anchor||1;return (((m-a)%e)+e)%e===0;};
-const cycleLabel=f=>{const e=fEvery(f);if(e===1)return "毎月";if(e===2)return `2か月ごと（${(f.anchor||1)%2===0?"偶数月":"奇数月"}）`;return `年1回（${f.anchor||1}月）`;};
+const cycleLabel=f=>{const e=fEvery(f);if(e===1)return "毎月";if(e===2)return `2か月ごと（${(f.anchor||1)%2===0?"偶数月":"奇数月"}）`;if(e===12)return `年1回（${f.anchor||1}月）`;const ms=[1,2,3,4,5,6,7,8,9,10,11,12].filter(m=>isPayMonth(f,m));return `${e===6?"半年":e+"か月"}ごと（${ms.join("・")}月）`;};
+/* 月あたりの金額（年払い・保険料なども月割りにならした額） */
+const fMonthly=f=>Math.round((f.amount||0)/fEvery(f));
+const fixedMonthly=fixed=>{
+  let exp=0,inc=0;
+  (fixed||[]).forEach(f=>{if(!f.active)return;const a=fMonthly(f);if(f.type==="income")inc+=a;else if(!SAVING_IDS.includes(f.catId)&&!SPECIAL_IDS.includes(f.catId))exp+=a;});
+  return{exp,inc};
+};
 const dueMonths=(f,now)=>{
   const res=[]; if(!f.active)return res;
   const todayStr=localISO(now);
@@ -357,7 +370,7 @@ function PendingCard({items,amts,setAmts,onAdd,onSkip}){
 
 function FixedForm({form,setForm,isEdit,onSave,onClose,onDel,hidden}){
   const cats=visCats(form.type,hidden,form.catId);
-  const inp={width:"100%",border:`1.5px solid ${C.border}`,borderRadius:10,padding:"10px 12px",fontSize:15,outline:"none",background:C.bg,color:C.text,marginBottom:14};
+  const inp={width:"100%",border:`1.5px solid ${C.border}`,borderRadius:10,padding:"10px 12px",fontSize:16,outline:"none",background:C.bg,color:C.text,marginBottom:14};
   const lbl={fontSize:12,fontWeight:700,color:C.text2,marginBottom:5,display:"block"};
   const seg=(val,cur,label,on)=>(
     <button onClick={on} style={{flex:1,padding:"9px 4px",borderRadius:9,border:"none",cursor:"pointer",fontWeight:800,fontSize:13,background:cur===val?C.bg2:"transparent",color:cur===val?C.text:C.text3,boxShadow:cur===val?"0 1px 6px rgba(0,0,0,.4)":"none"}}>{label}</button>
@@ -388,13 +401,17 @@ function FixedForm({form,setForm,isEdit,onSave,onClose,onDel,hidden}){
       <label style={lbl}>支払い（受け取り）のサイクル</label>
       <div style={{display:"flex",background:C.bg3,borderRadius:12,padding:4,marginBottom:10}}>
         {seg(1,form.every,"毎月",()=>setForm(f=>({...f,every:1})))}
-        {seg(2,form.every,"2か月ごと",()=>setForm(f=>({...f,every:2,anchor:f.every===2?f.anchor:"2"})))}
+        {seg(2,form.every,"2か月",()=>setForm(f=>({...f,every:2,anchor:f.every===2?f.anchor:"2"})))}
+        {seg(3,form.every,"3か月",()=>setForm(f=>({...f,every:3,anchor:f.every===3?f.anchor:"3"})))}
+        {seg(6,form.every,"半年",()=>setForm(f=>({...f,every:6,anchor:f.every===6?f.anchor:"4"})))}
         {seg(12,form.every,"年1回",()=>setForm(f=>({...f,every:12,anchor:f.every===12?f.anchor:"1"})))}
       </div>
+      {form.every>1&&<div style={{fontSize:11,color:C.text3,marginTop:-4,marginBottom:10,lineHeight:1.7}}>{form.every===2?"2か月ごと（年金など）":form.every===3?"年4回に分けて払うもの（固定資産税など）":form.every===6?"半年ごとに払うもの（保険料など）":"年に1回払うもの（NHK・自動車税・保険料など）"}</div>}
       {form.every===2&&(<div style={{display:"flex",background:C.bg3,borderRadius:12,padding:4,marginBottom:10}}>
         {seg("2",String(form.anchor),"偶数月（2・4・6…月）",()=>setForm(f=>({...f,anchor:"2"})))}
         {seg("1",String(form.anchor),"奇数月（1・3・5…月）",()=>setForm(f=>({...f,anchor:"1"})))}
       </div>)}
+      {(form.every===3||form.every===6)&&(<><label style={lbl}>払う月のうち、1つの月を入れてね</label><input type="number" inputMode="numeric" min="1" max="12" placeholder="例：6" value={form.anchor} onChange={e=>setForm(f=>({...f,anchor:e.target.value}))} style={{...inp,marginBottom:6}}/>{(()=>{const a=parseInt(form.anchor,10),e=form.every;if(!(a>=1&&a<=12))return null;const ms=[1,2,3,4,5,6,7,8,9,10,11,12].filter(m=>(((m-a)%e)+e)%e===0);return <div style={{fontSize:11,color:C.text3,marginBottom:14,lineHeight:1.7}}>払う月：{ms.join("・")}月。おおよそで大丈夫です（月割りで入れるときは、毎月に同じ額がならされます）。</div>;})()}</>)}
       {form.every===12&&(<><label style={lbl}>何月に払う？</label><input type="number" inputMode="numeric" min="1" max="12" placeholder="例：4" value={form.anchor} onChange={e=>setForm(f=>({...f,anchor:e.target.value}))} style={inp}/></>)}
       {form.every>1&&(<>
         <label style={lbl}>お金の入れ方</label>
@@ -438,6 +455,13 @@ function FixedPage({fixed,onAdd,onEdit,onToggle,onBack}){
         <button onClick={onAdd} style={{background:`linear-gradient(135deg,${C.btn1},${C.btn2})`,border:"none",borderRadius:12,padding:"9px 14px",color:"#fff",fontWeight:800,fontSize:13,cursor:"pointer"}}>＋ 登録</button>
       </div>
       <div style={{fontSize:12,color:C.text3,lineHeight:1.7,marginBottom:14}}>一度登録すると、毎月その日以降にアプリを開いたとき、明細に入ります（開かなかった月は、次に開いたときにまとめて入ります）。</div>
+      {fixed.length>0&&(()=>{const fm=fixedMonthly(fixed);return(<Card>
+        <div style={{fontSize:12,fontWeight:800,color:C.text3,marginBottom:8}}>毎月あたりに直すと（月割り）</div>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:14,padding:"4px 0"}}><span style={{color:C.text2}}>固定の支出</span><b style={{color:C.expense}}>{yen(fm.exp)}</b></div>
+        {fm.inc>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:14,padding:"4px 0"}}><span style={{color:C.text2}}>固定の収入</span><b style={{color:C.income}}>{yen(fm.inc)}</b></div>}
+        {fm.inc>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:14,padding:"6px 0 0",borderTop:`1px solid ${C.border}`,marginTop:4}}><span style={{color:C.text}}>差し引き</span><b style={{color:fm.inc-fm.exp>=0?C.text:C.expense}}>{yen(fm.inc-fm.exp)}</b></div>}
+        <div style={{fontSize:11,color:C.text3,marginTop:6,lineHeight:1.7}}>年払い・保険料・固定資産税なども、1か月ぶんにならした金額です。</div>
+      </Card>);})()}
       {fixed.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:C.text3,fontSize:14}}><FoxFace mood="worry" size={64} style={{margin:"0 auto 8px"}}/>まだ登録がありません。<br/>家賃や通信費などを登録してみましょう。</div>}
       {fixed.map(f=>{const cat=getKC(f.catId);return(
         <Card key={f.id} style={{opacity:f.active?1:.55}}>
@@ -445,7 +469,7 @@ function FixedPage({fixed,onAdd,onEdit,onToggle,onBack}){
             <div style={{width:40,height:40,borderRadius:10,background:cat.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,flexShrink:0}}>{cat.icon}</div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:14,fontWeight:700,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{f.name}</div>
-              <div style={{fontSize:11,color:C.text3,marginTop:2}}>{fEvery(f)>1?`${cycleLabel(f)}${f.payday?` ・ 支給日に金額を入れて${fEvery(f)}か月に分ける`:fSpread(f)?` ・ ${yen(f.amount)}を${fEvery(f)}で割って毎月`:` ・ ${f.day}日`}`:`毎月${f.day}日`} ・ {f.mode==="auto"?"自動":"確認してから"}{f.active?"":" ・ 停止中"}</div>
+              <div style={{fontSize:11,color:C.text3,marginTop:2}}>{fEvery(f)>1?`${cycleLabel(f)}${f.payday?` ・ 支給日に金額を入れて${fEvery(f)}か月に分ける`:fSpread(f)?` ・ ${yen(f.amount)}を${fEvery(f)}で割って毎月`:` ・ ${f.day}日`}`:`毎月${f.day}日`} {fEvery(f)>1&&!fSpread(f)&&!f.payday?` ・ 月あたり ${yen(fMonthly(f))}`:""} ・ {f.mode==="auto"?"自動":"確認してから"}{f.active?"":" ・ 停止中"}</div>
             </div>
             <div style={{fontWeight:800,fontSize:15,color:f.type==="income"?C.income:C.expense,flexShrink:0}}>{f.type==="income"?"+":"-"}{yen(fixedAmt(f))}</div>
           </div>
@@ -463,7 +487,7 @@ const FOXFACE={normal:"data:image/webp;base64,UklGRto8AABXRUJQVlA4WAoAAAAQAAAA2w
 const FoxFace=({mood="cheer",size=40,style={}})=><img src={FOXFACE[mood]} alt="" style={{height:size,width:"auto",display:"block",flexShrink:0,...style}}/>;
 
 /* ══ 予算 ══ */
-const BUDGET_CATS=()=>KCAT.expense.filter(c=>!SAVING_IDS.includes(c.id));
+const BUDGET_CATS=()=>KCAT.expense.filter(c=>!SAVING_IDS.includes(c.id)&&!SPECIAL_IDS.includes(c.id));
 const budgetState=(budgets,spentMap)=>{
   const rows=BUDGET_CATS().filter(c=>budgets[c.id]>0).map(c=>{const b=budgets[c.id],sp=spentMap[c.id]||0;return{...c,b,sp,r:sp/b};});
   const tb=rows.reduce((s,r)=>s+r.b,0),ts=rows.reduce((s,r)=>s+r.sp,0);
@@ -578,7 +602,7 @@ function CategoryPage({hidden,setHidden,onBack,setup,onStart,customCats,onAddCat
         <Card style={{border:`1px solid ${C.wine}`}}>
           <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:8}}>新しい{type==="expense"?"支出":"収入"}カテゴリ</div>
           <input type="text" placeholder="名前（例：車、習い事）" value={nm} onChange={e=>setNm(e.target.value)} maxLength={10}
-            style={{width:"100%",border:`1.5px solid ${C.border}`,borderRadius:10,padding:"10px 12px",fontSize:15,outline:"none",background:C.bg,color:C.text,marginBottom:10}}/>
+            style={{width:"100%",border:`1.5px solid ${C.border}`,borderRadius:10,padding:"10px 12px",fontSize:16,outline:"none",background:C.bg,color:C.text,marginBottom:10}}/>
           <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:6,marginBottom:12}}>
             {CUST_ICONS.map(e=>(
               <button key={e} onClick={()=>setIc(e)} style={{padding:"6px 0",fontSize:20,borderRadius:10,cursor:"pointer",border:ic===e?`2px solid ${C.wine}`:`1px solid ${C.border}`,background:ic===e?C.wineD:C.bg}}>{e}</button>
@@ -663,7 +687,7 @@ const carryInFor=(txs,carry,y,m)=>{
   if(vym<carry.start)return 0;
   if(vym===carry.start)return carry.opening||0;
   let sum=carry.opening||0;
-  txs.forEach(t=>{const k=ymOf(t.date);if(k>=carry.start&&k<vym)sum+=t.type==="income"?t.amount:-t.amount;});
+  txs.forEach(t=>{const k=ymOf(t.date);if(isSp(t))return;if(k>=carry.start&&k<vym)sum+=t.type==="income"?t.amount:-t.amount;});
   return sum;
 };
 const defaultCarry=(txs)=>{
@@ -684,21 +708,22 @@ function YearPage({txs,carry,year,setYear,mode,setMode,fyStart,setFyStart}){
   const pLabel=fyStart===1?`${year}年の決算`:fyStart===4?`${year}年度の決算`:`${year}年${fyStart}月〜${year+1}年${fyStart-1}月`;
   const pSub=fyStart===1?"1月〜12月":fyStart===4?`${year}年4月〜${year+1}年3月`:"";
   const rows=[];
+  let spT=0;
   for(const pp of periods){
     const m=pp.m;
     const ym=`${pp.y}-${pad2(m+1)}`;
     let i=0,e=0,sv=0;
-    txs.forEach(t=>{if(ymOf(t.date)!==ym)return;if(t.type==="income")i+=t.amount;else{e+=t.amount;if(SAVING_IDS.includes(t.catId))sv+=t.amount;}});
+    txs.forEach(t=>{if(ymOf(t.date)!==ym)return;if(isSp(t)){spT+=t.amount;return;}if(t.type==="income")i+=t.amount;else{e+=t.amount;if(SAVING_IDS.includes(t.catId))sv+=t.amount;}});
     rows.push({m,i,e,sv,b:i-e});
   }
   const T=rows.reduce((a,r)=>({i:a.i+r.i,e:a.e+r.e,sv:a.sv+r.sv}),{i:0,e:0,sv:0});
   const bal=T.i-T.e;
   const rate=T.i>0?Math.max(0,Math.round(((T.i-T.e+T.sv)/T.i)*100)):null;
   const catMap={};
-  txs.forEach(t=>{if(t.type==="expense"&&inPeriod.has(ymOf(t.date)))catMap[t.catId]=(catMap[t.catId]||0)+t.amount;});
+  txs.forEach(t=>{if(t.type==="expense"&&!isSp(t)&&inPeriod.has(ymOf(t.date)))catMap[t.catId]=(catMap[t.catId]||0)+t.amount;});
   const cats=Object.entries(catMap).map(([id,v])=>({id,v,...getKC(id)})).sort((a,b)=>b.v-a.v);
   const endBal=carry&&carry.on?carryInFor(txs,carry,year+1,fyStart-1):null;
-  const has=T.i>0||T.e>0;
+  const has=T.i>0||T.e>0||spT>0;
   const cell={fontSize:12,textAlign:"right",padding:"7px 0"};
   return(
     <div style={{padding:"16px 14px"}}>
@@ -714,7 +739,7 @@ function YearPage({txs,carry,year,setYear,mode,setMode,fyStart,setFyStart}){
         </div>
         {customOpen&&(<div style={{display:"flex",alignItems:"center",gap:8,marginTop:8}}>
           <span style={{fontSize:12,color:C.text2}}>何月から1年？</span>
-          <select value={fyStart} onChange={e=>setFyStart(parseInt(e.target.value,10))} style={{border:`1.5px solid ${C.border}`,borderRadius:10,padding:"8px 10px",fontSize:14,background:C.bg,color:C.text,outline:"none"}}>
+          <select value={fyStart} onChange={e=>setFyStart(parseInt(e.target.value,10))} style={{border:`1.5px solid ${C.border}`,borderRadius:10,padding:"8px 10px",fontSize:16,background:C.bg,color:C.text,outline:"none"}}>
             {[...Array(12)].map((_,i)=><option key={i+1} value={i+1}>{i+1}月</option>)}
           </select>
           <span style={{fontSize:12,color:C.text3}}>〜 {fyStart===1?12:fyStart-1}月</span>
@@ -731,13 +756,20 @@ function YearPage({txs,carry,year,setYear,mode,setMode,fyStart,setFyStart}){
             <div style={{fontSize:11,color:C.text3,marginBottom:4}}>年間の収支</div>
             <div style={{fontSize:34,fontWeight:900,letterSpacing:-1,color:bal>=0?C.big:C.expense}}>{yen(bal)}</div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:8}}>
             {[["収入",yen(T.i),C.income],["支出",yen(T.e),C.expense],["貯蓄率",rate===null?"—":rate+"%",C.income],["貯めた額",yen(T.sv),"#4CAF72"]].map(([l,v,co])=>(
               <div key={l} style={{background:C.bg3,borderRadius:12,padding:"10px 12px"}}><div style={{fontSize:11,color:C.text3}}>{l}</div><div style={{fontSize:16,fontWeight:800,color:co,marginTop:2}}>{v}</div></div>
             ))}
           </div>
           {endBal!==null&&<div style={{fontSize:12,color:C.text2,marginTop:12,textAlign:"center"}}>年末時点の残高（繰越込み） <b style={{color:endBal>=0?C.text:C.expense}}>{yen(endBal)}</b></div>}
         </Card>
+        {spT>0&&(<Card>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:13,fontWeight:800,color:C.text}}>🛠️ 特別費（リフォームなど）</span>
+            <span style={{fontSize:16,fontWeight:800,color:C.expense}}>{yen(spT)}</span>
+          </div>
+          <div style={{fontSize:11,color:C.text3,marginTop:4}}>この期間の合計です。上の収入・支出・収支には入れていません。</div>
+        </Card>)}
         <Card>
           <div style={{fontSize:12,fontWeight:800,color:C.text3,letterSpacing:.5,marginBottom:8}}>月ごとの収支</div>
           <div style={{display:"grid",gridTemplateColumns:"34px 1fr 1fr 1fr",columnGap:8,borderBottom:`1px solid ${C.border}`,paddingBottom:4}}>
@@ -816,6 +848,49 @@ function MonthStartPage({ms,onSave,onBack}){
   );
 }
 
+const HELP=[
+  {i:"📝",t:"お金を入れるには",b:["画面の右下の ＋ を押します。","「支出」か「収入」を選んで、金額・カテゴリ・日付を入れ、保存を押します。","まちがえたときは、明細をタップすると、直したり消したりできます。"]},
+  {i:"🏠",t:"ホームの見かた",b:["いちばん上の大きい数字は、今月の残りです。","その下の「収入」と「支出」は、今月の合計です。","上の ‹ › を押すと、前の月・次の月を見られます。","キツネの顔は、予算に対する使いぐあいで変わります。"]},
+  {i:"🔁",t:"毎月決まって出るお金（固定費）",b:["設定 →「固定費の管理」→「＋ 登録」から入れます。家賃・スマホ代・年金など、決まって出入りするお金です。","払う間隔は、毎月・2か月・3か月・半年・年1回から選べます。","年払いや保険料は、「毎月に分けて入れる」を選ぶと、毎月同じ額が入ります。毎月の支出が安定して見えます。","年金のように金額が変わるものは、「支給日に金額を入れて、毎月に分ける」が便利です。","「自動で入れる」か「確認してから入れる」かも選べます。"]},
+  {i:"🎯",t:"予算を決める",b:["設定 →「予算の設定」で、カテゴリごとに1か月の予算を入れます。","ホームのキツネが、使いすぎていないかを教えてくれます。"]},
+  {i:"🔄",t:"余りを次の月へ（繰り越し）",b:["設定 →「繰り越し」で、オンにします。","余ったお金や、足りなかった分が、次の月に引き継がれます。","見せ方は2つあります。「残高に足す」と、「使える金額に足す」（収入に繰越を足して、そこから使う形）です。"]},
+  {i:"📅",t:"月のはじまりを変える",b:["設定 →「月のはじまり」で、1か月のはじまりの日を選べます。","給料日や年金の日が25日なら、「25」にします。25日から次の月の24日までが、1か月になります。","その期間を、はじまる月の名前で呼ぶか、おわる月の名前で呼ぶかも選べます。"]},
+  {i:"🛠️",t:"大きな出費（リフォームなど）",b:["お金を入れるときに、カテゴリで「特別費」を選びます。","特別費は、毎月の収支・予算・繰り越しには入りません。ホームの「特別な出費」の枠に、別に出ます。","貯金から払ったときは、「収入」は入れません。「資産」で、貯金の口座の残高を減らしてください。"]},
+  {i:"💰",t:"資産（口座の残高）",b:["「資産」タブで口座を追加して、残高を入れます。","銀行とはつながっていないので、残高は自分で入れます。週に1回くらいで十分です。","「今日を記録」を月に1回押すと、資産の推移がグラフで見られます。"]},
+  {i:"🎨",t:"見やすくする",b:["設定で、画面の色（ダーク・水色・ピンク）と、文字の大きさ（標準・大きい・特大）を選べます。"]},
+  {i:"💾",t:"バックアップ（とても大事です）",b:["入れたデータは、このスマホの中にだけ入っています。","設定 →「バックアップを保存」で、ファイルに保存できます。「ファイル」アプリなどに保存してください。","月に1回と、機種変更やアイコンを消す前には、必ず保存してください。","戻すときは、設定 →「バックアップから復元」で、そのファイルを選びます。"]},
+  {i:"🧒",t:"こどもモード",b:["設定 →「こどもモード」で、ひらがなのおこづかいちょうに切り替わります。","「おうちのひと」の数字（4けた）を知っている人だけが、元に戻せます。"]},
+  {i:"🆘",t:"うまく動かないとき",b:["アプリを一度閉じて、もう一度開いてみてください。","画面がずれたときも、閉じて開き直すと直ります。","それでも直らないときは、バックアップを取ってから、教えてください。"]},
+];
+function HelpPage({onBack}){
+  const [open,setOpen]=useState(0);
+  return(
+    <div style={{padding:"16px 14px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+        <button onClick={onBack} style={{background:C.bg3,border:"none",color:C.text,borderRadius:10,width:34,height:34,cursor:"pointer",fontSize:18}}>‹</button>
+        <div style={{fontSize:17,fontWeight:800,color:C.text,flex:1}}>使い方ガイド</div>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+        <FoxFace mood="cheer" size={44}/>
+        <div style={{fontSize:13,color:C.text2,lineHeight:1.7}}>知りたいところをタップすると、説明が開きます。</div>
+      </div>
+      {HELP.map((h,i)=>(
+        <Card key={i} onClick={()=>setOpen(open===i?-1:i)} style={{cursor:"pointer",padding:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,padding:"14px 14px"}}>
+            <span style={{fontSize:22}}>{h.i}</span>
+            <span style={{flex:1,fontSize:15,fontWeight:800,color:C.text}}>{h.t}</span>
+            <span style={{color:C.text3,fontSize:18,transform:open===i?"rotate(90deg)":"none",transition:"transform .15s"}}>›</span>
+          </div>
+          {open===i&&(<div style={{padding:"0 16px 14px 16px",borderTop:`1px solid ${C.border}`}}>
+            {h.b.map((l,j)=>(<div key={j} style={{display:"flex",gap:8,fontSize:14,lineHeight:1.9,color:C.text,paddingTop:8}}><span style={{color:C.wineL,flexShrink:0}}>●</span><span>{l}</span></div>))}
+          </div>)}
+        </Card>
+      ))}
+      <div style={{height:20}}/>
+    </div>
+  );
+}
+
 function CarryPage({carry,onSave,onBack}){
   const [on,setOn]=useState(carry.on);
   const [mode,setMode]=useState(carry.mode||"balance");
@@ -824,7 +899,7 @@ function CarryPage({carry,onSave,onBack}){
   const [saved,setSaved]=useState(false);
   const save=()=>{onSave({on,mode,opening:parseInt(open,10)||0,start:/^\d{4}-\d{2}$/.test(start)?start:carry.start});setSaved(true);setTimeout(()=>setSaved(false),1800);};
   const lbl={fontSize:12,fontWeight:700,color:C.text2,marginBottom:5,display:"block"};
-  const inp={width:"100%",border:`1.5px solid ${C.border}`,borderRadius:10,padding:"10px 12px",fontSize:15,outline:"none",background:C.bg,color:C.text,marginBottom:14};
+  const inp={width:"100%",border:`1.5px solid ${C.border}`,borderRadius:10,padding:"10px 12px",fontSize:16,outline:"none",background:C.bg,color:C.text,marginBottom:14};
   return(
     <div style={{padding:"16px 14px"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
@@ -982,7 +1057,7 @@ function KidApp({txs,addTx,delTx,goals,setGoals,pin,onExit,onExport}){
   );};
   const NAVK=[["home","🏠","ホーム"],["log","📒","きろく"],["goal","🎯","ほしいもの"]];
   return(
-    <div style={{background:C.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:84,position:"relative"}}>
+    <div style={{background:C.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:84,position:"relative",overflowX:"clip"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"calc(env(safe-area-inset-top,0px) + 12px) 16px 6px"}}>
         <div style={{fontSize:16,fontWeight:900,color:C.text,display:"flex",alignItems:"center",gap:8}}><FoxIcon size={26}/>キツネのおこづかいちょう</div>
         <button onClick={()=>setPinAsk(true)} style={{background:C.bg3,border:"none",borderRadius:10,padding:"7px 10px",cursor:"pointer",fontSize:12,color:C.text2,fontWeight:700}}>🔒 おうちのひと</button>
@@ -1174,6 +1249,13 @@ function App(){
   },[theme]);
   const [fscale,setFscale]=useState(()=>{const v=Number(LS.load("kitsune_font_v3"));return [1,1.15,1.3].includes(v)?v:1;});
   useEffect(()=>{LS.save("kitsune_font_v3",fscale);try{document.body.style.zoom=String(fscale);}catch(e){}},[fscale]);
+  useEffect(()=>{
+    const fix=e=>{const t=e.target;if(t&&t.tagName&&/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)){try{const fs=parseFloat(getComputedStyle(t).fontSize);if(fs<16)t.style.fontSize="16px";}catch(err){}}};
+    document.addEventListener("touchstart",fix,true);document.addEventListener("focusin",fix,true);
+    return()=>{document.removeEventListener("touchstart",fix,true);document.removeEventListener("focusin",fix,true);};
+  },[]);
+  const [helpSeen,setHelpSeen]=useState(()=>LS.load("kitsune_help_v3")===true);
+  const seeHelp=()=>{setHelpSeen(true);LS.save("kitsune_help_v3",true);};
   const [anaMode,setAnaMode]=useState("month");
   const [legacy,setLegacy]=useState(()=>findLegacy());
   const [legacyAsk,setLegacyAsk]=useState(false);
@@ -1292,14 +1374,17 @@ function App(){
   const vmKey=`${vm.y}-${pad2(vm.m+1)}`;
 
   const mTxs=useMemo(()=>txs.filter(t=>ymOf(t.date)===vmKey).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id),[txs,vmKey,ms]);
-  const inc=mTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
-  const exp=mTxs.filter(t=>t.type==="expense").reduce((s,t)=>s+t.amount,0);
+  const nTxs=useMemo(()=>mTxs.filter(t=>!isSp(t)),[mTxs]);
+  const spTxs=useMemo(()=>mTxs.filter(isSp),[mTxs]);
+  const spTotal=spTxs.reduce((s,t)=>s+t.amount,0);
+  const inc=nTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
+  const exp=nTxs.filter(t=>t.type==="expense").reduce((s,t)=>s+t.amount,0);
   const bal=inc-exp;
   const carryIn=useMemo(()=>carryInFor(txs,carry,vm.y,vm.m),[txs,carry,vm,ms]);
   const balShown=carry.on?carryIn+bal:bal;
-  const spentMap=useMemo(()=>{const m={};mTxs.filter(t=>t.type==="expense").forEach(t=>{m[t.catId]=(m[t.catId]||0)+t.amount;});return m;},[mTxs]);
-  const expByCat=useMemo(()=>{const map={};mTxs.filter(t=>t.type==="expense").forEach(t=>{map[t.catId]=(map[t.catId]||0)+t.amount;});return Object.entries(map).map(([id,v])=>({id,value:v,...getKC(id)})).sort((a,b)=>b.value-a.value);},[mTxs]);
-  const prevExp=useMemo(()=>{const pm=vm.m===0?11:vm.m-1,py=vm.m===0?vm.y-1:vm.y;const pk=`${py}-${pad2(pm+1)}`;return txs.filter(t=>t.type==="expense"&&ymOf(t.date)===pk).reduce((s,t)=>s+t.amount,0);},[txs,vm,ms]);
+  const spentMap=useMemo(()=>{const m={};nTxs.filter(t=>t.type==="expense").forEach(t=>{m[t.catId]=(m[t.catId]||0)+t.amount;});return m;},[nTxs]);
+  const expByCat=useMemo(()=>{const map={};nTxs.filter(t=>t.type==="expense").forEach(t=>{map[t.catId]=(map[t.catId]||0)+t.amount;});return Object.entries(map).map(([id,v])=>({id,value:v,...getKC(id)})).sort((a,b)=>b.value-a.value);},[nTxs]);
+  const prevExp=useMemo(()=>{const pm=vm.m===0?11:vm.m-1,py=vm.m===0?vm.y-1:vm.y;const pk=`${py}-${pad2(pm+1)}`;return txs.filter(t=>t.type==="expense"&&!isSp(t)&&ymOf(t.date)===pk).reduce((s,t)=>s+t.amount,0);},[txs,vm,ms]);
   const aTotals=useMemo(()=>{const assets=accounts.filter(a=>a.type!=="credit").reduce((s,a)=>s+(a.balance||0),0);const liab=accounts.filter(a=>a.type==="credit").reduce((s,a)=>s+(a.balance||0),0);return{assets,liab,net:assets-liab};},[accounts]);
 
   const openKAdd=()=>{setKForm({type:"expense",date:toISO(today),catId:"food",memo:"",amount:""});setKModal("add");};
@@ -1344,8 +1429,42 @@ function App(){
         </div>
       </KHeader>
       <div style={{padding:"14px 14px 0"}}>
+        {!helpSeen&&(<Card style={{border:`1px solid ${C.wine}`,background:C.tint}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <FoxFace mood="cheer" size={40}/>
+            <div style={{flex:1}}><div style={{fontSize:14,fontWeight:800,color:C.text}}>はじめての方へ</div><div style={{fontSize:12,color:C.text2,marginTop:2,lineHeight:1.6}}>使い方ガイドで、入れ方や便利な使い方が見られます。</div></div>
+          </div>
+          <div style={{display:"flex",gap:8,marginTop:10}}>
+            <button onClick={seeHelp} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",cursor:"pointer",fontWeight:700,fontSize:13,background:C.bg3,color:C.text2}}>あとで</button>
+            <button onClick={()=>{seeHelp();setMainTab("settings");setSetView("help");}} style={{flex:2,padding:"10px 0",borderRadius:10,border:"none",cursor:"pointer",fontWeight:800,fontSize:13,background:`linear-gradient(135deg,${C.btn1},${C.btn2})`,color:"#fff"}}>ガイドを見る</button>
+          </div>
+        </Card>)}
         <PendingCard items={pending} amts={pendAmts} setAmts={setPendAmts} onAdd={addPending} onSkip={skipPending}/>
         <BudgetCard budgets={budgets} spentMap={spentMap} onOpen={()=>{setMainTab("settings");setSetView("budget");}}/>
+        {(()=>{const fm=fixedMonthly(fixed);if(!(fm.exp>0))return null;const base=fm.inc>0?fm.inc:inc;const baseLbl=fm.inc>0?"毎月の固定の収入":"今月の収入";return(<Card>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:13,fontWeight:800,color:C.text}}>🔁 毎月の固定費（月割り）</span>
+            <span style={{fontSize:18,fontWeight:800,color:C.expense}}>{yen(fm.exp)}</span>
+          </div>
+          <div style={{fontSize:11,color:C.text3,marginTop:4,lineHeight:1.7}}>年払い・保険料・固定資産税なども、1か月ぶんにならした金額です。</div>
+          {base>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8,paddingTop:8,borderTop:`1px solid ${C.border}`}}>
+            <span style={{fontSize:12,color:C.text2}}>{baseLbl} {yen(base)} − 固定費 ＝</span>
+            <span style={{fontSize:15,fontWeight:800,color:base-fm.exp>=0?C.big:C.expense}}>{yen(base-fm.exp)}</span>
+          </div>}
+        </Card>);})()}
+        {spTotal>0&&(<Card>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:13,fontWeight:800,color:C.text}}>🛠️ 特別な出費</span>
+            <span style={{fontSize:18,fontWeight:800,color:C.expense}}>{yen(spTotal)}</span>
+          </div>
+          <div style={{fontSize:11,color:C.text3,marginTop:4,marginBottom:6}}>リフォームなどの大きな出費です。上の収支・予算・繰越には入れていません。</div>
+          {spTxs.slice(0,3).map(t=>(
+            <div key={t.id} onClick={()=>openKEdit(t)} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"7px 0",borderTop:`1px solid ${C.border}`,cursor:"pointer"}}>
+              <span style={{fontSize:13,color:C.text2,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.memo||"特別費"} <span style={{fontSize:11,color:C.text3}}>{t.date.slice(5).replace("-","/")}</span></span>
+              <span style={{fontSize:13,fontWeight:700,color:C.text,whiteSpace:"nowrap"}}>{yen(t.amount)}</span>
+            </div>
+          ))}
+        </Card>)}
         <Card>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
             <span style={{fontSize:12,fontWeight:800,color:C.text3,letterSpacing:.5}}>直近の明細</span>
@@ -1436,7 +1555,7 @@ function App(){
 
   /* 分析 */
   const AnalysisTab=()=>{
-    const monthly=useMemo(()=>{const r=[];for(let i=5;i>=0;i--){let m=vm.m-i,y=vm.y;if(m<0){m+=12;y--;}const k=`${y}-${pad2(m+1)}`;const e=txs.filter(t=>t.type==="expense"&&ymOf(t.date)===k).reduce((s,t)=>s+t.amount,0);r.push({label:`${m+1}月`,value:e});}return r;},[txs,vm,ms]);
+    const monthly=useMemo(()=>{const r=[];for(let i=5;i>=0;i--){let m=vm.m-i,y=vm.y;if(m<0){m+=12;y--;}const k=`${y}-${pad2(m+1)}`;const e=txs.filter(t=>t.type==="expense"&&!isSp(t)&&ymOf(t.date)===k).reduce((s,t)=>s+t.amount,0);r.push({label:`${m+1}月`,value:e});}return r;},[txs,vm,ms]);
     const maxV=Math.max(...monthly.map(m=>m.value),1);
     const days=new Date(vm.y,vm.m+1,0).getDate();
     const sav=mTxs.filter(t=>t.type==="expense"&&SAVING_IDS.includes(t.catId)).reduce((q,t)=>q+t.amount,0);
@@ -1456,6 +1575,13 @@ function App(){
             ))}
           </div>
         </Card>
+        {spTotal>0&&(<Card>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:13,fontWeight:800,color:C.text}}>🛠️ {mlabel}の特別な出費</span>
+            <span style={{fontSize:16,fontWeight:800,color:C.expense}}>{yen(spTotal)}</span>
+          </div>
+          <div style={{fontSize:11,color:C.text3,marginTop:4}}>下のグラフ・平均・貯蓄率には入れていません。</div>
+        </Card>)}
         <Card>
           <div style={{fontSize:12,fontWeight:800,color:C.text3,letterSpacing:.5,marginBottom:10}}>{mlabel}のカテゴリ別</div>
           <Donut slices={expByCat.map(c=>({id:c.id,value:c.value,color:c.color}))} size={150}/>
@@ -1473,8 +1599,8 @@ function App(){
         </Card>
         <Card>
           <div style={{fontSize:12,fontWeight:800,color:C.text3,letterSpacing:.5,marginBottom:10}}>今月のサマリー</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            {[["件数",`${mTxs.filter(t=>t.type==="expense").length}件`,C.expense],["平均/日",exp>0?yen(Math.round(exp/days)):"¥0",C.expense],["最大支出",(expByCat.find(c=>!SAVING_IDS.includes(c.id))||{label:"—"}).label,"#AA66FF"],["貯蓄率",inc>0?`${Math.max(0,Math.round(((inc-exp+sav)/inc)*100))}%`:"—",C.income]].map(([l,v,co])=>(
+          <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:10}}>
+            {[["件数",`${nTxs.filter(t=>t.type==="expense").length}件`,C.expense],["平均/日",exp>0?yen(Math.round(exp/days)):"¥0",C.expense],["最大支出",(expByCat.find(c=>!SAVING_IDS.includes(c.id))||{label:"—"}).label,"#AA66FF"],["貯蓄率",inc>0?`${Math.max(0,Math.round(((inc-exp+sav)/inc)*100))}%`:"—",C.income]].map(([l,v,co])=>(
               <div key={l} style={{background:C.bg3,borderRadius:12,padding:"12px 14px"}}>
                 <div style={{fontSize:11,color:C.text3,marginBottom:4}}>{l}</div>
                 <div style={{fontSize:18,fontWeight:800,color:co}}>{v}</div>
@@ -1495,22 +1621,22 @@ function App(){
       <div>
         <div style={{background:`linear-gradient(160deg,${C.hd1} 0%,${C.hd2} 100%)`,borderBottom:`1px solid ${C.border}`,padding:"env(safe-area-inset-top,0px) 16px 18px",position:"sticky",top:0,zIndex:10}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
-            <div>
+            <div style={{minWidth:0,flex:1,paddingRight:10}}>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}><FoxIcon size={22}/><span style={{fontSize:14,fontWeight:700,color:C.text}}>マイ資産</span></div>
               <div style={{fontSize:10,color:C.text3,marginBottom:8}}>口座自動連携なし・データはこの端末のみ</div>
               <div style={{fontSize:11,color:C.text3,marginBottom:2}}>純資産</div>
-              <div style={{fontSize:32,fontWeight:700,letterSpacing:-1,color:net>=0?C.blue:C.expense}}>{yenF(net)}</div>
+              <div style={{fontSize:30,fontWeight:700,letterSpacing:-1,color:net>=0?C.blue:C.expense,whiteSpace:"nowrap"}}>{yenF(net)}</div>
             </div>
             <button onClick={openAAdd} style={{background:`linear-gradient(135deg,${C.blueD},${C.blue})`,border:"none",borderRadius:12,padding:"10px 14px",color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>＋ 口座追加</button>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:10}}>
             <div style={{background:"rgba(39,174,96,.1)",borderRadius:12,padding:"12px 14px",border:"1px solid rgba(39,174,96,.2)"}}>
               <div style={{fontSize:11,color:C.green,marginBottom:4}}>総資産</div>
-              <div style={{fontSize:18,fontWeight:700,color:C.greenL}}>{yenF(assets)}</div>
+              <div style={{fontSize:"clamp(13px,4.4vw,18px)",whiteSpace:"nowrap",fontWeight:700,color:C.greenL}}>{yenF(assets)}</div>
             </div>
             <div style={{background:"rgba(231,76,60,.1)",borderRadius:12,padding:"12px 14px",border:"1px solid rgba(231,76,60,.2)"}}>
               <div style={{fontSize:11,color:"#E74C3C",marginBottom:4}}>総負債</div>
-              <div style={{fontSize:18,fontWeight:700,color:C.expense}}>{yenF(liab)}</div>
+              <div style={{fontSize:"clamp(13px,4.4vw,18px)",whiteSpace:"nowrap",fontWeight:700,color:C.expense}}>{yenF(liab)}</div>
             </div>
           </div>
         </div>
@@ -1560,8 +1686,8 @@ function App(){
             <div key={acc.id} style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:14,padding:14,display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
               <div style={{width:40,height:40,borderRadius:10,background:t.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{t.icon}</div>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:600,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{acc.name}</div>
-                <div style={{fontSize:11,color:C.text3,marginTop:2}}>{t.label}</div>
+                <div style={{fontSize:13,fontWeight:600,color:C.text,whiteSpace:"normal",wordBreak:"break-all",overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{acc.name}</div>
+                <div style={{fontSize:11,color:C.text3,marginTop:2,whiteSpace:"nowrap"}}>{t.label}</div>
               </div>
               {isEd?(
                 <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
@@ -1613,6 +1739,11 @@ function App(){
             <span style={{fontSize:22}}>💾</span>
             <div><div style={{fontWeight:700,fontSize:14,color:C.greenL}}>自動保存が有効です</div><div style={{fontSize:12,color:C.green,marginTop:1}}>データはこのブラウザに保存されています</div></div>
           </div>
+        </Card>
+        <Card style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer",border:`1px solid ${C.wine}`}} onClick={()=>{seeHelp();setSetView("help");}}>
+          <div style={{width:42,height:42,borderRadius:12,background:C.wineD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>📖</div>
+          <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14,color:C.text}}>使い方ガイド</div><div style={{fontSize:12,color:C.text3,marginTop:1}}>入れ方・固定費・バックアップなどの説明</div></div>
+          <div style={{color:C.text3,fontSize:18}}>›</div>
         </Card>
         <KidSwitchCard pin={kidPin} onEnable={p=>{setKidPin(p);setKid(true);}}/>
         <Card>
@@ -1685,7 +1816,7 @@ function App(){
             <div><div style={{fontWeight:600,fontSize:14,color:C.wineL}}>データをリセット</div><div style={{fontSize:12,color:C.text3,marginTop:1}}>すべてのデータを削除して空の状態に戻す</div></div>
           </div>
         </Card>
-        <div style={{textAlign:"center",marginTop:20,color:C.text3,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><FoxIcon size={16}/> キツネ家計簿 v2.17.1</div>
+        <div style={{textAlign:"center",marginTop:20,color:C.text3,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><FoxIcon size={16}/> キツネ家計簿 v2.20.0</div>
         {showReset&&<Confirm icon="⚠️" title="データをリセットしますか？" sub={"家計簿・資産すべてのデータが\n削除されます。元に戻せません。"} onCancel={()=>setShowReset(false)} onOk={()=>{setTxs(SEED_TXS);setAccounts(SEED_ACC);setSnaps([]);setFixed([]);setBudgets({});setHidden(DEFAULT_HIDDEN);setCustomCats([]);setCarry(defaultCarry([]));setGoals([]);setKid(false);setKidPin("");setMs({d:1,name:"start"});setWho(false);setNeedSetup(true);setShowReset(false);}} okLabel="リセット"/>}
       </div>
     );
@@ -1707,12 +1838,12 @@ function App(){
   if(needSetup&&!who)return <WhoPicker onAdult={()=>setWho(true)} onKid={p=>{setKidPin(p);setKid(true);setNeedSetup(false);setWho(true);}}/>;
   if(kid&&!needSetup)return <KidApp txs={txs} addTx={addKidTx} delTx={delKidTx} goals={goals} setGoals={setGoals} pin={kidPin} onExit={()=>setKid(false)} onExport={exportAll}/>;
   return(
-    <div style={{background:C.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:76,position:"relative"}}>
+    <div style={{background:C.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:76,position:"relative",overflowX:"clip"}}>
       {mainTab==="home"&&<HomeTab/>}
       {mainTab==="list"&&<ListTab/>}
       {mainTab==="analysis"&&(anaMode==="year"?<YearPage txs={txs} carry={carry} year={anaYear} setYear={setAnaYear} mode={anaMode} setMode={setAnaMode} fyStart={fyStart} setFyStart={setFyStart}/>:<AnalysisTab/>)}
       {mainTab==="asset"&&<AssetTab/>}
-      {mainTab==="settings"&&(setView==="ms"?<MonthStartPage ms={ms} onSave={setMs} onBack={()=>setSetView("main")}/>:setView==="carry"?<CarryPage carry={carry} onSave={setCarry} onBack={()=>setSetView("main")}/>:setView==="cats"?<CategoryPage hidden={hidden} setHidden={setHidden} onBack={()=>setSetView("main")} customCats={customCats} onAddCat={addCat} onDelCat={delCat} usedIds={usedIds}/>:setView==="budget"?<BudgetPage hidden={hidden} budgets={budgets} spentMap={spentMap} mlabel={mlabel} onSave={setBudgets} onBack={()=>setSetView("main")}/>:setView==="fixed"?<FixedPage fixed={fixed} onAdd={openFAdd} onEdit={openFEdit} onToggle={toggleFixed} onBack={()=>setSetView("main")}/>:<SettingsTab/>)}
+      {mainTab==="settings"&&(setView==="help"?<HelpPage onBack={()=>setSetView("main")}/>:setView==="ms"?<MonthStartPage ms={ms} onSave={setMs} onBack={()=>setSetView("main")}/>:setView==="carry"?<CarryPage carry={carry} onSave={setCarry} onBack={()=>setSetView("main")}/>:setView==="cats"?<CategoryPage hidden={hidden} setHidden={setHidden} onBack={()=>setSetView("main")} customCats={customCats} onAddCat={addCat} onDelCat={delCat} usedIds={usedIds}/>:setView==="budget"?<BudgetPage hidden={hidden} budgets={budgets} spentMap={spentMap} mlabel={mlabel} onSave={setBudgets} onBack={()=>setSetView("main")}/>:setView==="fixed"?<FixedPage fixed={fixed} onAdd={openFAdd} onEdit={openFEdit} onToggle={toggleFixed} onBack={()=>setSetView("main")}/>:<SettingsTab/>)}
 
       {(mainTab==="home"||mainTab==="list"||mainTab==="analysis")&&(
         <button onClick={openKAdd} style={{position:"fixed",bottom:82,right:"max(16px,calc(50% - 240px + 16px))",width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${C.btn1},${C.btn3})`,color:"#fff",fontSize:28,border:"none",cursor:"pointer",boxShadow:`0 4px 20px ${C.glow}`,display:"flex",alignItems:"center",justifyContent:"center",zIndex:60}}>＋</button>
