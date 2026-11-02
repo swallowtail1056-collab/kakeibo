@@ -23,7 +23,7 @@ html,body{max-width:100%;height:100%;background:#0F1117;font-family:'Hiragino Ka
 input,button,select,textarea{font-family:inherit;color:inherit}
 input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 input{max-width:100%;min-width:0}
-input[type=date]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;min-height:46px;text-align:center}
+input[type=date],input[type=month]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;min-height:46px;text-align:center}
 *{-webkit-tap-highlight-color:transparent}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-thumb{background:#722F37;border-radius:99px}
@@ -152,7 +152,7 @@ const applyCustom=(list)=>{
 const SAVING_IDS=["saving","nisa","ideco","stock"];
 /* 特別費（リフォームなど）: 月の収支・予算・繰越には入れず、別に見せる */
 const SPECIAL_IDS=["special"];
-const isSp=t=>t.type==="expense"&&SPECIAL_IDS.includes(t.catId);
+const isSp=t=>t.type==="expense"&&(SPECIAL_IDS.includes(t.catId)||((allKC.find(c=>c.id===t.catId)||{}).label==="特別費"));
 const DEFAULT_HIDDEN=["grandchild","pet","care","nisa","ideco","stock"];
 const hiddenFor=(txs)=>{const used=new Set((txs||[]).map(t=>t.catId));return DEFAULT_HIDDEN.filter(id=>!used.has(id));};
 const visCats=(type,hidden,keepId)=>(KCAT[type]||[]).filter(c=>!hidden.includes(c.id)||c.id===keepId);
@@ -534,10 +534,22 @@ const foxSay=(st)=>{
   if(st.r<.5)return "いい調子！このまま続けよう";
   return "予算内で順調だよ";
 };
+const periodEnd=(y,m0)=>{if(MS.d>1){const b=MS.name==="end"?m0-1:m0;return new Date(y,b+1,MS.d-1);}return new Date(y,m0+1,0);};
 const barColor=r=>r>1?"#FF6060":r>=.8?"#E0A030":"#4CAF72";
 
-function BudgetCard({budgets,spentMap,onOpen}){
+const WARN_KEY="kitsune_warnseen_v3";
+const warnSession=new Set();
+const readWarnSeen=()=>{const a=LS.load(WARN_KEY);return new Set(Array.isArray(a)?a:[]);};
+function BudgetCard({budgets,spentMap,onOpen,ym}){
   const st=budgetState(budgets,spentMap);
+  const seenNow=readWarnSeen();
+  const wKey=r=>`${ym}|${r.id}|${r.r>1?2:1}`;
+  const activeW=st.rows.filter(r=>r.r>=.8&&(!seenNow.has(wKey(r))||warnSession.has(wKey(r))));
+  useEffect(()=>{
+    const seen=readWarnSeen();let ch=false;
+    activeW.forEach(r=>{const k=wKey(r);if(!seen.has(k)){seen.add(k);warnSession.add(k);ch=true;}});
+    if(ch)LS.save(WARN_KEY,[...seen].slice(-300));
+  });
   if(!st.rows.length)return(
     <Card onClick={onOpen} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
       <FoxFace mood="normal" size={40}/>
@@ -545,13 +557,14 @@ function BudgetCard({budgets,spentMap,onOpen}){
       <div style={{color:C.text3,fontSize:18}}>›</div>
     </Card>
   );
-  const warn=st.rows.filter(r=>r.r>=.8).sort((a,b)=>b.r-a.r).slice(0,3);
-  const mood=st.rows.some(r=>r.r>1)?"upset":warn.length?"worry":st.r<.5?"joy":"cheer";
+  const warn=activeW.sort((a,b)=>b.r-a.r).slice(0,3);
+  const stMsg={...st,rows:st.rows.map(r=>activeW.includes(r)?r:{...r,r:Math.min(r.r,.79)})};
+  const mood=stMsg.rows.some(r=>r.r>1)?"upset":warn.length?"worry":st.r<.5?"joy":"cheer";
   return(
     <Card onClick={onOpen} style={{cursor:"pointer"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
         <FoxFace mood={mood} size={44}/>
-        <div style={{flex:1,fontSize:13,fontWeight:700,color:C.text,lineHeight:1.5}}>{foxSay(st)}</div>
+        <div style={{flex:1,fontSize:13,fontWeight:700,color:C.text,lineHeight:1.5}}>{foxSay(stMsg)}</div>
         <div style={{color:C.text3,fontSize:18}}>›</div>
       </div>
       <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.text2,marginBottom:6}}>
@@ -1450,15 +1463,15 @@ function App(){
       <KHeader>
         <div style={{textAlign:"center",marginBottom:16}}>
           <div style={{fontSize:11,color:C.text3,marginBottom:4}}>{carry.on?(carry.mode==="income"?"今月の残り（使える金額 − 支出）":"今月の残高（繰越込み）"):"今月の残高"}</div>
-          <div style={{fontSize:40,fontWeight:900,letterSpacing:-1,color:balShown>=0?C.big:C.expense}}>{yen(balShown)}</div>
+          <div style={{fontSize:"clamp(26px,10vw,40px)",fontWeight:900,letterSpacing:-1,color:balShown>=0?C.big:C.expense,whiteSpace:"nowrap"}}>{yen(balShown)}</div>
           {carry.on&&(carry.mode==="income"?<div style={{fontSize:11,color:C.text3,marginTop:4}}>使える金額 {yen(inc+carryIn)} ＝ 収入 {yen(inc)} ＋ 繰越 {yen(carryIn)}</div>:<div style={{fontSize:11,color:C.text3,marginTop:4}}>前月からの繰越 {yen(carryIn)} ／ 今月の収支 {bal>=0?"+":""}{yen(bal)}</div>)}
           {prevExp>0&&<div style={{fontSize:11,color:C.text3,marginTop:4}}>先月比支出 {exp-prevExp>=0?"+":""}{yen(exp-prevExp)}</div>}
         </div>
         <div style={{display:"flex",gap:10}}>
           {[[carry.on&&carry.mode==="income"?"使える金額":"収入",carry.on&&carry.mode==="income"?inc+carryIn:inc,C.income],["支出",exp,C.expense]].map(([l,v,co])=>(
-            <div key={l} style={{flex:1,background:C.glass,borderRadius:12,padding:"10px 14px"}}>
+            <div key={l} style={{flex:1,minWidth:0,background:C.glass,borderRadius:12,padding:"10px 12px"}}>
               <div style={{fontSize:11,color:C.text3,marginBottom:4}}>{l}</div>
-              <div style={{fontSize:20,fontWeight:800,color:co}}>{yen(v)}</div>
+              <div style={{fontSize:"clamp(14px,5vw,20px)",fontWeight:800,color:co,whiteSpace:"nowrap"}}>{yen(v)}</div>
             </div>
           ))}
         </div>
@@ -1475,7 +1488,24 @@ function App(){
           </div>
         </Card>)}
         <PendingCard items={pending} amts={pendAmts} setAmts={setPendAmts} onAdd={addPending} onSkip={skipPending}/>
-        <BudgetCard budgets={budgets} spentMap={spentMap} onOpen={()=>{setMainTab("settings");setSetView("budget");}}/>
+        <BudgetCard ym={vmKey} budgets={budgets} spentMap={spentMap} onOpen={()=>{setMainTab("settings");setSetView("budget");}}/>
+        {(()=>{
+          if(vmKey!==ymOf(localISO(new Date())))return null;
+          const stW=budgetState(budgets,spentMap);const useB=stW.rows.length>0;
+          const remain=useB?stW.tb-stW.ts:balShown;
+          const t0=new Date();t0.setHours(0,0,0,0);
+          const endD=periodEnd(vm.y,vm.m);endD.setHours(0,0,0,0);
+          const daysLeft=Math.round((endD-t0)/86400000)+1;
+          if(daysLeft<1)return null;
+          const weeks=daysLeft/7;
+          return(<Card style={{padding:"12px 14px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:8}}>
+              <span style={{fontSize:12,fontWeight:800,color:C.text2}}>🗓️ 1週間あたり、あと</span>
+              <span style={{fontSize:remain>0?20:14,fontWeight:800,color:C.text,whiteSpace:"nowrap"}}>{remain>0?yen(Math.round(remain/weeks)):"もう残りはありません"}</span>
+            </div>
+            <div style={{fontSize:11,color:C.text3,marginTop:4,lineHeight:1.6}}>{useB?"予算の残り":"今月の残高"} {yen(Math.max(0,remain))} ÷ 残り{daysLeft}日（約{(Math.round(weeks*10)/10)}週間）</div>
+          </Card>);
+        })()}
         {(()=>{const fm=fixedMonthly(fixed);if(!(fm.exp>0))return null;const base=fm.inc>0?fm.inc:inc;const baseLbl=fm.inc>0?"毎月の固定の収入":"今月の収入";return(<Card>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span style={{fontSize:13,fontWeight:800,color:C.text}}>🔁 毎月の固定費（月割り）</span>
@@ -1852,7 +1882,7 @@ function App(){
             <div><div style={{fontWeight:600,fontSize:14,color:C.wineL}}>データをリセット</div><div style={{fontSize:12,color:C.text3,marginTop:1}}>すべてのデータを削除して空の状態に戻す</div></div>
           </div>
         </Card>
-        <div style={{textAlign:"center",marginTop:20,color:C.text3,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><FoxIcon size={16}/> キツネ家計簿 v2.21.1</div>
+        <div style={{textAlign:"center",marginTop:20,color:C.text3,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><FoxIcon size={16}/> キツネ家計簿 v2.21.5</div>
         {showReset&&<Confirm icon="⚠️" title="データをリセットしますか？" sub={"家計簿・資産すべてのデータが\n削除されます。元に戻せません。"} onCancel={()=>setShowReset(false)} onOk={()=>{setTxs(SEED_TXS);setAccounts(SEED_ACC);setSnaps([]);setFixed([]);setBudgets({});setHidden(DEFAULT_HIDDEN);setCustomCats([]);setCarry(defaultCarry([]));setGoals([]);setKid(false);setKidPin("");setMs({d:1,name:"start"});setWho(false);setNeedSetup(true);setShowReset(false);}} okLabel="リセット"/>}
       </div>
     );
