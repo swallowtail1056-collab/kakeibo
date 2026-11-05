@@ -535,6 +535,7 @@ const foxSay=(st)=>{
   return "予算内で順調だよ";
 };
 const periodEnd=(y,m0)=>{if(MS.d>1){const b=MS.name==="end"?m0-1:m0;return new Date(y,b+1,MS.d-1);}return new Date(y,m0+1,0);};
+const periodStart=(y,m0)=>{if(MS.d>1){const b=MS.name==="end"?m0-1:m0;return new Date(y,b,MS.d);}return new Date(y,m0,1);};
 const barColor=r=>r>1?"#FF6060":r>=.8?"#E0A030":"#4CAF72";
 
 const WARN_KEY="kitsune_warnseen_v3";
@@ -1491,19 +1492,37 @@ function App(){
         <BudgetCard ym={vmKey} budgets={budgets} spentMap={spentMap} onOpen={()=>{setMainTab("settings");setSetView("budget");}}/>
         {(()=>{
           if(vmKey!==ymOf(localISO(new Date())))return null;
+          const DAY=86400000;
           const stW=budgetState(budgets,spentMap);const useB=stW.rows.length>0;
-          const remain=useB?stW.tb-stW.ts:balShown;
           const t0=new Date();t0.setHours(0,0,0,0);
-          const endD=periodEnd(vm.y,vm.m);endD.setHours(0,0,0,0);
-          const daysLeft=Math.round((endD-t0)/86400000)+1;
-          if(daysLeft<1)return null;
-          const weeks=daysLeft/7;
+          const pS=periodStart(vm.y,vm.m);pS.setHours(0,0,0,0);
+          const pE=periodEnd(vm.y,vm.m);pE.setHours(0,0,0,0);
+          if(pE<t0)return null;
+          const mon=new Date(t0.getTime()-((t0.getDay()+6)%7)*DAY);
+          const sun=new Date(mon.getTime()+6*DAY);
+          const wS=mon<pS?pS:mon, wE=sun>pE?pE:sun;
+          const sISO=localISO(wS),eISO=localISO(wE);
+          const inW=t=>t.date>=sISO&&t.date<=eISO;
+          const ids=new Set(stW.rows.map(r=>r.id));
+          const wSpent=nTxs.filter(t=>t.type==="expense"&&inW(t)&&(!useB||ids.has(t.catId))).reduce((a,t)=>a+t.amount,0);
+          const wInc=nTxs.filter(t=>t.type==="income"&&inW(t)).reduce((a,t)=>a+t.amount,0);
+          const mNum=parseInt(vmKey.slice(5),10);
+          const reserve=(fixed||[]).filter(f=>f.active&&f.type!=="income"&&!SAVING_IDS.includes(f.catId)&&!SPECIAL_IDS.includes(f.catId)&&(f.startMonth||"0000-00")<=vmKey&&(fSpread(f)||isPayMonth(f,mNum))&&!(f.done||[]).includes(vmKey)).reduce((a,f)=>a+fixedAmt(f),0);
+          const remainNow=(useB?stW.tb-stW.ts:balShown)-reserve;
+          const remainStart=useB?remainNow+wSpent:remainNow-wInc+wSpent;
+          const daysFromStart=Math.round((pE-wS)/DAY)+1;
+          const daysInWeek=Math.round((wE-wS)/DAY)+1;
+          const allow=Math.max(0,Math.round(remainStart*daysInWeek/daysFromStart));
+          const left=allow-wSpent;
+          const md=d=>`${d.getMonth()+1}/${d.getDate()}`;
+          const ratio=allow>0?Math.min(1,wSpent/allow):1;
           return(<Card style={{padding:"12px 14px"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:8}}>
-              <span style={{fontSize:12,fontWeight:800,color:C.text2}}>🗓️ 1週間あたり、あと</span>
-              <span style={{fontSize:remain>0?20:14,fontWeight:800,color:C.text,whiteSpace:"nowrap"}}>{remain>0?yen(Math.round(remain/weeks)):"もう残りはありません"}</span>
+              <span style={{fontSize:12,fontWeight:800,color:C.text2}}>🗓️ 今週（月〜日）あと</span>
+              <span style={{fontSize:left>0?20:14,fontWeight:800,color:C.text,whiteSpace:"nowrap"}}>{left>0?yen(left):"今週のぶんは使いきりました"}</span>
             </div>
-            <div style={{fontSize:11,color:C.text3,marginTop:4,lineHeight:1.6}}>{useB?"予算の残り":"今月の残高"} {yen(Math.max(0,remain))} ÷ 残り{daysLeft}日（約{(Math.round(weeks*10)/10)}週間）</div>
+            <div style={{height:6,borderRadius:99,background:C.bg3,overflow:"hidden",marginTop:8}}><div style={{width:(ratio*100)+"%",height:"100%",background:C.text3,borderRadius:99}}/></div>
+            <div style={{fontSize:11,color:C.text3,marginTop:6,lineHeight:1.6}}>{md(wS)}〜{md(wE)}（{daysInWeek}日間）の使える金額 {yen(allow)} のうち、{yen(wSpent)} 使いました。{useB?"予算の残りをもとに":"今月の残高をもとに"}、毎週の初めに決まります。{reserve>0?`これから払う固定費 ${yen(reserve)} は、先に引いてあります。`:""}</div>
           </Card>);
         })()}
         {(()=>{const fm=fixedMonthly(fixed);if(!(fm.exp>0))return null;const base=fm.inc>0?fm.inc:inc;const baseLbl=fm.inc>0?"毎月の固定の収入":"今月の収入";return(<Card>
@@ -1882,7 +1901,7 @@ function App(){
             <div><div style={{fontWeight:600,fontSize:14,color:C.wineL}}>データをリセット</div><div style={{fontSize:12,color:C.text3,marginTop:1}}>すべてのデータを削除して空の状態に戻す</div></div>
           </div>
         </Card>
-        <div style={{textAlign:"center",marginTop:20,color:C.text3,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><FoxIcon size={16}/> キツネ家計簿 v2.21.5</div>
+        <div style={{textAlign:"center",marginTop:20,color:C.text3,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><FoxIcon size={16}/> キツネ家計簿 v2.22.1</div>
         {showReset&&<Confirm icon="⚠️" title="データをリセットしますか？" sub={"家計簿・資産すべてのデータが\n削除されます。元に戻せません。"} onCancel={()=>setShowReset(false)} onOk={()=>{setTxs(SEED_TXS);setAccounts(SEED_ACC);setSnaps([]);setFixed([]);setBudgets({});setHidden(DEFAULT_HIDDEN);setCustomCats([]);setCarry(defaultCarry([]));setGoals([]);setKid(false);setKidPin("");setMs({d:1,name:"start"});setWho(false);setNeedSetup(true);setShowReset(false);}} okLabel="リセット"/>}
       </div>
     );
