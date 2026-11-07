@@ -1351,7 +1351,8 @@ function App(){
   const addCat=c=>setCustomCats(p=>[...p,c]);
   const delCat=id=>{setCustomCats(p=>p.filter(x=>x.id!==id));setHidden(h=>h.filter(x=>x!==id));setBudgets(b=>{const n={...b};delete n[id];return n;});};
   useEffect(()=>{
-    const onVis=()=>{if(!document.hidden)setTick(t=>t+1);};
+    let lastDay=localISO(new Date());
+    const onVis=()=>{if(document.hidden)return;const d=localISO(new Date());if(d!==lastDay){lastDay=d;setTick(t=>t+1);}};
     document.addEventListener("visibilitychange",onVis);
     return()=>document.removeEventListener("visibilitychange",onVis);
   },[]);
@@ -1509,7 +1510,7 @@ function App(){
           const mNum=parseInt(vmKey.slice(5),10);
           const reserve=(fixed||[]).filter(f=>f.active&&f.type!=="income"&&!SAVING_IDS.includes(f.catId)&&!SPECIAL_IDS.includes(f.catId)&&(f.startMonth||"0000-00")<=vmKey&&(fSpread(f)||isPayMonth(f,mNum))&&!(f.done||[]).includes(vmKey)).reduce((a,f)=>a+fixedAmt(f),0);
           const remainNow=(useB?stW.tb-stW.ts:balShown)-reserve;
-          const remainStart=useB?remainNow+wSpent:remainNow-wInc+wSpent;
+          const remainStart=remainNow+wSpent;
           const daysFromStart=Math.round((pE-wS)/DAY)+1;
           const daysInWeek=Math.round((wE-wS)/DAY)+1;
           const allow=Math.max(0,Math.round(remainStart*daysInWeek/daysFromStart));
@@ -1801,21 +1802,6 @@ function App(){
   const SettingsTab=()=>{
     const [showReset,setShowReset]=useState(false);
     const exportData=exportAll;
-    const importData=e=>{
-      const file=e.target.files&&e.target.files[0]; if(!file)return;
-      const reader=new FileReader();
-      reader.onload=ev=>{
-        try{
-          const d=JSON.parse(ev.target.result);
-          if(!d||!Array.isArray(d.txs)||!Array.isArray(d.accounts)){alert("ファイルの形式が正しくありません。");return;}
-          const t=d.txs.length,a=d.accounts.length,sn=Array.isArray(d.snaps)?d.snaps.length:0;
-          if(!window.confirm(`明細${t}件・口座${a}件・資産記録${sn}件を読み込みます。\n現在のデータは置き換わります。よろしいですか？`))return;
-          setTxs(d.txs);setAccounts(d.accounts);setSnaps(Array.isArray(d.snaps)?d.snaps:[]);setFixed(Array.isArray(d.fixed)?d.fixed:[]);setBudgets(d.budgets&&typeof d.budgets==="object"?d.budgets:{});setCustomCats(Array.isArray(d.customCats)?d.customCats:[]);setCarry(d.carry&&d.carry.start?d.carry:defaultCarry(d.txs));setGoals(Array.isArray(d.goals)?d.goals:[]);setKid(d.kid===true);setKidPin(typeof d.kidPin==="string"?d.kidPin:"");setMs(d.ms);setHidden(Array.isArray(d.hidden)?d.hidden:hiddenFor(d.txs));
-          alert("復元が完了しました。");
-        }catch(err){alert("読み込みに失敗しました。");}
-      };
-      reader.readAsText(file); e.target.value="";
-    };
     return(
       <div style={{padding:"16px 14px"}}>
         <div style={{fontSize:17,fontWeight:800,color:C.text,marginBottom:16,display:"flex",alignItems:"center",gap:8}}><FoxIcon size={22}/> 設定</div>
@@ -1887,24 +1873,40 @@ function App(){
           <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14,color:C.text}}>バックアップを保存</div><div style={{fontSize:12,color:C.text3,marginTop:1}}>家計簿・資産をJSONファイルに書き出す</div></div>
           <div style={{color:C.border,fontSize:18}}>›</div>
         </Card>
-        <label style={{display:"block"}}>
-          <Card style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer"}}>
+        <div style={{display:"block"}}>
+          <Card style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer"}} onClick={()=>{if(fileRef.current)fileRef.current.click();}}>
             <div style={{width:42,height:42,borderRadius:12,background:C.bg3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>📥</div>
             <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14,color:C.text}}>バックアップから復元</div><div style={{fontSize:12,color:C.text3,marginTop:1}}>保存したJSONファイルを読み込む（現在のデータは置き換わります）</div></div>
             <div style={{color:C.border,fontSize:18}}>›</div>
           </Card>
-          <input type="file" accept=".json,application/json" onChange={importData} style={{display:"none"}}/>
-        </label>
+        </div>
         <Card style={{border:`1px solid ${C.wineD}`,cursor:"pointer"}} onClick={()=>setShowReset(true)}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             <div style={{width:42,height:42,borderRadius:12,background:C.wineD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🗑️</div>
             <div><div style={{fontWeight:600,fontSize:14,color:C.wineL}}>データをリセット</div><div style={{fontSize:12,color:C.text3,marginTop:1}}>すべてのデータを削除して空の状態に戻す</div></div>
           </div>
         </Card>
-        <div style={{textAlign:"center",marginTop:20,color:C.text3,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><FoxIcon size={16}/> キツネ家計簿 v2.22.1</div>
+        <div style={{textAlign:"center",marginTop:20,color:C.text3,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><FoxIcon size={16}/> キツネ家計簿 v2.22.3</div>
         {showReset&&<Confirm icon="⚠️" title="データをリセットしますか？" sub={"家計簿・資産すべてのデータが\n削除されます。元に戻せません。"} onCancel={()=>setShowReset(false)} onOk={()=>{setTxs(SEED_TXS);setAccounts(SEED_ACC);setSnaps([]);setFixed([]);setBudgets({});setHidden(DEFAULT_HIDDEN);setCustomCats([]);setCarry(defaultCarry([]));setGoals([]);setKid(false);setKidPin("");setMs({d:1,name:"start"});setWho(false);setNeedSetup(true);setShowReset(false);}} okLabel="リセット"/>}
       </div>
     );
+  };
+
+  const fileRef=useRef(null);
+  const importData=e=>{
+    const file=e.target.files&&e.target.files[0]; if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const d=JSON.parse(ev.target.result);
+        if(!d||!Array.isArray(d.txs)||!Array.isArray(d.accounts)){alert("ファイルの形式が正しくありません。");return;}
+        const t=d.txs.length,a=d.accounts.length,sn=Array.isArray(d.snaps)?d.snaps.length:0;
+        if(!window.confirm(`明細${t}件・口座${a}件・資産記録${sn}件を読み込みます。\n現在のデータは置き換わります。よろしいですか？`))return;
+        setTxs(d.txs);setAccounts(d.accounts);setSnaps(Array.isArray(d.snaps)?d.snaps:[]);setFixed(Array.isArray(d.fixed)?d.fixed:[]);setBudgets(d.budgets&&typeof d.budgets==="object"?d.budgets:{});setCustomCats(Array.isArray(d.customCats)?d.customCats:[]);setCarry(d.carry&&d.carry.start?d.carry:defaultCarry(d.txs));setGoals(Array.isArray(d.goals)?d.goals:[]);setKid(d.kid===true);setKidPin(typeof d.kidPin==="string"?d.kidPin:"");setMs(d.ms);setHidden(Array.isArray(d.hidden)?d.hidden:hiddenFor(d.txs));
+        alert("復元が完了しました。");
+      }catch(err){alert("読み込みに失敗しました。");}
+    };
+    reader.readAsText(file); e.target.value="";
   };
 
   const exportAll=async()=>{
@@ -1924,6 +1926,7 @@ function App(){
   if(kid&&!needSetup)return <KidApp txs={txs} addTx={addKidTx} delTx={delKidTx} goals={goals} setGoals={setGoals} pin={kidPin} onExit={()=>setKid(false)} onExport={exportAll}/>;
   return(
     <div style={{background:C.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:76,position:"relative",overflowX:"clip"}}>
+      <input ref={fileRef} type="file" accept=".json,application/json,text/plain,*/*" onChange={importData} style={{display:"none"}}/>
       {mainTab==="home"&&<HomeTab/>}
       {mainTab==="list"&&<ListTab/>}
       {mainTab==="analysis"&&(anaMode==="year"?<YearPage txs={txs} carry={carry} year={anaYear} setYear={setAnaYear} mode={anaMode} setMode={setAnaMode} fyStart={fyStart} setFyStart={setFyStart}/>:<AnalysisTab/>)}
