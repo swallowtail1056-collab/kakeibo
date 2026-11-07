@@ -538,7 +538,8 @@ const periodEnd=(y,m0)=>{if(MS.d>1){const b=MS.name==="end"?m0-1:m0;return new D
 const periodStart=(y,m0)=>{if(MS.d>1){const b=MS.name==="end"?m0-1:m0;return new Date(y,b,MS.d);}return new Date(y,m0,1);};
 const barColor=r=>r>1?"#FF6060":r>=.8?"#E0A030":"#4CAF72";
 
-const APP_VER="2.22.4";
+const APP_VER="2.22.5";
+const IS_APP=(()=>{try{return !!(window.Capacitor&&(typeof window.Capacitor.isNativePlatform==="function"?window.Capacitor.isNativePlatform():true))||location.protocol==="capacitor:";}catch(e){return false;}})();
 const verGt=(a,b)=>{const x=String(a).split(".").map(Number),y=String(b).split(".").map(Number);for(let i=0;i<3;i++){const p=x[i]||0,q=y[i]||0;if(p!==q)return p>q;}return false;};
 const appBase=()=>location.href.split("#")[0].split("?")[0];
 const fetchRemoteVer=async()=>{try{const r=await fetch(appBase(),{cache:"no-store"});const t=await r.text();const m=t.match(/const APP_VER="([0-9.]+)"/);return m?m[1]:"";}catch(e){return "";}};
@@ -1357,6 +1358,7 @@ function App(){
   const delCat=id=>{setCustomCats(p=>p.filter(x=>x.id!==id));setHidden(h=>h.filter(x=>x!==id));setBudgets(b=>{const n={...b};delete n[id];return n;});};
   const [newVer,setNewVer]=useState("");
   useEffect(()=>{
+    if(IS_APP)return;
     let alive=true;
     const chk=async()=>{const v=await fetchRemoteVer();if(alive&&v&&verGt(v,APP_VER))setNewVer(v);};
     chk();
@@ -1832,11 +1834,11 @@ function App(){
             <div><div style={{fontWeight:700,fontSize:14,color:C.greenL}}>自動保存が有効です</div><div style={{fontSize:12,color:C.green,marginTop:1}}>データはこのブラウザに保存されています</div></div>
           </div>
         </Card>
-        <Card style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer"}} onClick={async()=>{setUpMsg("確認しています…");const v=await fetchRemoteVer();if(!v){setUpMsg("確認できませんでした。電波のよい所で、もう一度どうぞ。");return;}if(verGt(v,APP_VER)){setUpMsg(`新しい版（v${v}）に更新します…`);doRefresh();}else{setUpMsg(`いまが最新版です（v${APP_VER}）。`);}}}>
+        {!IS_APP&&(<Card style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer"}} onClick={async()=>{setUpMsg("確認しています…");const v=await fetchRemoteVer();if(!v){setUpMsg("確認できませんでした。電波のよい所で、もう一度どうぞ。");return;}if(verGt(v,APP_VER)){setUpMsg(`新しい版（v${v}）に更新します…`);doRefresh();}else{setUpMsg(`いまが最新版です（v${APP_VER}）。`);}}}>
           <div style={{width:42,height:42,borderRadius:12,background:C.bg3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>🔄</div>
           <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14,color:C.text}}>最新版にする</div><div style={{fontSize:12,color:upMsg?C.text:C.text3,marginTop:1,lineHeight:1.5}}>{upMsg||`いまの版は v${APP_VER}。押すと、新しい版があるか確認します。`}</div></div>
           <div style={{color:C.border,fontSize:18}}>›</div>
-        </Card>
+        </Card>)}
         <Card style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer",border:`1px solid ${C.wine}`}} onClick={()=>{seeHelp();setSetView("help");}}>
           <div style={{width:42,height:42,borderRadius:12,background:C.wineD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>📖</div>
           <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14,color:C.text}}>使い方ガイド</div><div style={{fontSize:12,color:C.text3,marginTop:1}}>入れ方・固定費・バックアップなどの説明</div></div>
