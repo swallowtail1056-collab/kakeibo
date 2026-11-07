@@ -538,6 +538,11 @@ const periodEnd=(y,m0)=>{if(MS.d>1){const b=MS.name==="end"?m0-1:m0;return new D
 const periodStart=(y,m0)=>{if(MS.d>1){const b=MS.name==="end"?m0-1:m0;return new Date(y,b,MS.d);}return new Date(y,m0,1);};
 const barColor=r=>r>1?"#FF6060":r>=.8?"#E0A030":"#4CAF72";
 
+const APP_VER="2.22.4";
+const verGt=(a,b)=>{const x=String(a).split(".").map(Number),y=String(b).split(".").map(Number);for(let i=0;i<3;i++){const p=x[i]||0,q=y[i]||0;if(p!==q)return p>q;}return false;};
+const appBase=()=>location.href.split("#")[0].split("?")[0];
+const fetchRemoteVer=async()=>{try{const r=await fetch(appBase(),{cache:"no-store"});const t=await r.text();const m=t.match(/const APP_VER="([0-9.]+)"/);return m?m[1]:"";}catch(e){return "";}};
+const doRefresh=async()=>{try{await fetch(appBase(),{cache:"reload"});}catch(e){}location.reload();};
 const WARN_KEY="kitsune_warnseen_v3";
 const warnSession=new Set();
 const readWarnSeen=()=>{const a=LS.load(WARN_KEY);return new Set(Array.isArray(a)?a:[]);};
@@ -1350,6 +1355,15 @@ function App(){
   const usedIds=useMemo(()=>new Set([...txs.map(t=>t.catId),...fixed.map(f=>f.catId)]),[txs,fixed]);
   const addCat=c=>setCustomCats(p=>[...p,c]);
   const delCat=id=>{setCustomCats(p=>p.filter(x=>x.id!==id));setHidden(h=>h.filter(x=>x!==id));setBudgets(b=>{const n={...b};delete n[id];return n;});};
+  const [newVer,setNewVer]=useState("");
+  useEffect(()=>{
+    let alive=true;
+    const chk=async()=>{const v=await fetchRemoteVer();if(alive&&v&&verGt(v,APP_VER))setNewVer(v);};
+    chk();
+    const onV=()=>{if(!document.hidden)chk();};
+    document.addEventListener("visibilitychange",onV);
+    return()=>{alive=false;document.removeEventListener("visibilitychange",onV);};
+  },[]);
   useEffect(()=>{
     let lastDay=localISO(new Date());
     const onVis=()=>{if(document.hidden)return;const d=localISO(new Date());if(d!==lastDay){lastDay=d;setTick(t=>t+1);}};
@@ -1487,6 +1501,12 @@ function App(){
           <div style={{display:"flex",gap:8,marginTop:10}}>
             <button onClick={seeHelp} style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",cursor:"pointer",fontWeight:700,fontSize:13,background:C.bg3,color:C.text2}}>あとで</button>
             <button onClick={()=>{seeHelp();setMainTab("settings");setSetView("help");}} style={{flex:2,padding:"10px 0",borderRadius:10,border:"none",cursor:"pointer",fontWeight:800,fontSize:13,background:`linear-gradient(135deg,${C.btn1},${C.btn2})`,color:"#fff"}}>ガイドを見る</button>
+          </div>
+        </Card>)}
+        {newVer&&(<Card style={{border:`1px solid ${C.wine}`,background:C.tint}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{flex:1}}><div style={{fontSize:14,fontWeight:800,color:C.text}}>🆕 新しい版があります（v{newVer}）</div><div style={{fontSize:12,color:C.text2,marginTop:2,lineHeight:1.6}}>入れたデータは消えません。</div></div>
+            <button onClick={doRefresh} style={{padding:"10px 14px",borderRadius:10,border:"none",cursor:"pointer",fontWeight:800,fontSize:13,background:`linear-gradient(135deg,${C.btn1},${C.btn2})`,color:"#fff",flexShrink:0}}>更新する</button>
           </div>
         </Card>)}
         <PendingCard items={pending} amts={pendAmts} setAmts={setPendAmts} onAdd={addPending} onSkip={skipPending}/>
@@ -1801,6 +1821,7 @@ function App(){
   /* 設定 */
   const SettingsTab=()=>{
     const [showReset,setShowReset]=useState(false);
+    const [upMsg,setUpMsg]=useState("");
     const exportData=exportAll;
     return(
       <div style={{padding:"16px 14px"}}>
@@ -1810,6 +1831,11 @@ function App(){
             <span style={{fontSize:22}}>💾</span>
             <div><div style={{fontWeight:700,fontSize:14,color:C.greenL}}>自動保存が有効です</div><div style={{fontSize:12,color:C.green,marginTop:1}}>データはこのブラウザに保存されています</div></div>
           </div>
+        </Card>
+        <Card style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer"}} onClick={async()=>{setUpMsg("確認しています…");const v=await fetchRemoteVer();if(!v){setUpMsg("確認できませんでした。電波のよい所で、もう一度どうぞ。");return;}if(verGt(v,APP_VER)){setUpMsg(`新しい版（v${v}）に更新します…`);doRefresh();}else{setUpMsg(`いまが最新版です（v${APP_VER}）。`);}}}>
+          <div style={{width:42,height:42,borderRadius:12,background:C.bg3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>🔄</div>
+          <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14,color:C.text}}>最新版にする</div><div style={{fontSize:12,color:upMsg?C.text:C.text3,marginTop:1,lineHeight:1.5}}>{upMsg||`いまの版は v${APP_VER}。押すと、新しい版があるか確認します。`}</div></div>
+          <div style={{color:C.border,fontSize:18}}>›</div>
         </Card>
         <Card style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer",border:`1px solid ${C.wine}`}} onClick={()=>{seeHelp();setSetView("help");}}>
           <div style={{width:42,height:42,borderRadius:12,background:C.wineD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>📖</div>
@@ -1886,7 +1912,7 @@ function App(){
             <div><div style={{fontWeight:600,fontSize:14,color:C.wineL}}>データをリセット</div><div style={{fontSize:12,color:C.text3,marginTop:1}}>すべてのデータを削除して空の状態に戻す</div></div>
           </div>
         </Card>
-        <div style={{textAlign:"center",marginTop:20,color:C.text3,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><FoxIcon size={16}/> キツネ家計簿 v2.22.3</div>
+        <div style={{textAlign:"center",marginTop:20,color:C.text3,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><FoxIcon size={16}/> キツネ家計簿 v{APP_VER}</div>
         {showReset&&<Confirm icon="⚠️" title="データをリセットしますか？" sub={"家計簿・資産すべてのデータが\n削除されます。元に戻せません。"} onCancel={()=>setShowReset(false)} onOk={()=>{setTxs(SEED_TXS);setAccounts(SEED_ACC);setSnaps([]);setFixed([]);setBudgets({});setHidden(DEFAULT_HIDDEN);setCustomCats([]);setCarry(defaultCarry([]));setGoals([]);setKid(false);setKidPin("");setMs({d:1,name:"start"});setWho(false);setNeedSetup(true);setShowReset(false);}} okLabel="リセット"/>}
       </div>
     );
