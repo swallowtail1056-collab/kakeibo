@@ -538,7 +538,7 @@ const periodEnd=(y,m0)=>{if(MS.d>1){const b=MS.name==="end"?m0-1:m0;return new D
 const periodStart=(y,m0)=>{if(MS.d>1){const b=MS.name==="end"?m0-1:m0;return new Date(y,b,MS.d);}return new Date(y,m0,1);};
 const barColor=r=>r>1?"#FF6060":r>=.8?"#E0A030":"#4CAF72";
 
-const APP_VER="2.24.1";
+const APP_VER="2.25.0";
 // ===== 広告(AdMob) ===== 本番に切り替えるときは AD_TEST を false にして、AD_BANNER_ID を自分の広告ユニットIDに変える
 const AD_TEST=false;
 const AD_BANNER_ID="ca-app-pub-1034556404852942/3254628881";
@@ -1101,6 +1101,14 @@ function KidApp({txs,addTx,delTx,goals,setGoals,pin,onExit,onExport}){
   useEffect(()=>{if(!msg)return;const t=setTimeout(()=>setMsg(""),2200);return()=>clearTimeout(t);},[msg]);
   const bal=txs.reduce((s,t)=>s+(t.type==="income"?t.amount:-t.amount),0);
   const sorted=[...txs].sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
+  const nowYM=localISO(new Date()).slice(0,7);
+  const [km,setKm]=useState(nowYM);
+  const shiftKm=d=>setKm(k=>{let y=parseInt(k.slice(0,4),10),m=parseInt(k.slice(5),10)+d;while(m>12){m-=12;y++;}while(m<1){m+=12;y--;}return `${y}-${pad2(m)}`;});
+  const monthSum=ym=>{let i=0,o=0;txs.forEach(t=>{if(t.date.slice(0,7)===ym){if(t.type==="income")i+=t.amount;else o+=t.amount;}});return{i,o};};
+  const nowSum=monthSum(nowYM);
+  const kmSum=monthSum(km);
+  const kmTxs=sorted.filter(t=>t.date.slice(0,7)===km);
+  const kmLabel=`${km.slice(0,4)}ねん ${parseInt(km.slice(5),10)}がつ`;
   const reached=goals.filter(g=>bal>=g.target);
   const next=goals.filter(g=>bal<g.target).sort((a,b)=>a.target-b.target)[0];
   const mood=reached.length?"joy":bal>0?"cheer":"worry";
@@ -1133,6 +1141,7 @@ function KidApp({txs,addTx,delTx,goals,setGoals,pin,onExit,onExport}){
           <div style={{fontSize:13,color:C.text2,fontWeight:700,marginBottom:4}}>いま もっている おかね</div>
           <div style={{fontSize:44,fontWeight:900,letterSpacing:-1,color:bal>=0?C.big:C.expense}}>{yen(bal)}</div>
           <div style={{fontSize:13,color:C.text2,marginTop:8,lineHeight:1.6,fontWeight:600}}>{say}</div>
+          <div style={{display:"flex",justifyContent:"center",gap:14,marginTop:10,fontSize:13,fontWeight:800,flexWrap:"wrap"}}><span style={{color:C.text3}}>{parseInt(nowYM.slice(5),10)}がつ</span><span style={{color:C.income}}>もらった {yen(nowSum.i)}</span><span style={{color:C.expense}}>つかった {yen(nowSum.o)}</span></div>
           {next&&!reached.length&&<div style={{height:10,borderRadius:99,background:C.bg3,overflow:"hidden",marginTop:10}}><div style={{width:Math.max(3,Math.min(100,Math.max(0,bal)/next.target*100))+"%",height:"100%",background:"#4CAF72",borderRadius:99}}/></div>}
         </Card>
         <div style={{display:"flex",gap:10,marginBottom:14}}>
@@ -1148,9 +1157,17 @@ function KidApp({txs,addTx,delTx,goals,setGoals,pin,onExit,onExport}){
 
       {tab==="log"&&(<div style={{padding:"8px 14px 0"}}>
         <div style={{fontSize:17,fontWeight:900,color:C.text,margin:"6px 2px 10px"}}>きろく</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+          <button onClick={()=>shiftKm(-1)} style={{background:C.bg3,border:"none",color:C.text,borderRadius:12,width:44,height:40,cursor:"pointer",fontSize:20,fontWeight:900}}>‹</button>
+          <div style={{fontSize:16,fontWeight:900,color:C.text}}>{kmLabel}</div>
+          <button onClick={()=>shiftKm(1)} style={{background:C.bg3,border:"none",color:C.text,borderRadius:12,width:44,height:40,cursor:"pointer",fontSize:20,fontWeight:900}}>›</button>
+        </div>
+        <Card style={{padding:"10px 14px"}}>
+          <div style={{display:"flex",justifyContent:"space-around",fontSize:14,fontWeight:800}}><span style={{color:C.income}}>もらった {yen(kmSum.i)}</span><span style={{color:C.expense}}>つかった {yen(kmSum.o)}</span></div>
+        </Card>
         <Card>
-          {sorted.length===0&&<div style={{textAlign:"center",padding:"24px 0",color:C.text3,fontSize:13}}><FoxFace mood="worry" size={56} style={{margin:"0 auto 8px"}}/>まだ きろくが ないよ</div>}
-          {sorted.map(row)}
+          {kmTxs.length===0&&<div style={{textAlign:"center",padding:"24px 0",color:C.text3,fontSize:13}}><FoxFace mood="worry" size={56} style={{margin:"0 auto 8px"}}/>この月の きろくは ないよ</div>}
+          {kmTxs.map(row)}
         </Card>
       </div>)}
 
